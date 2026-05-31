@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Fruitmarket.API/Fruitmarket.API.csproj" />
+  <Project Path="Fruitmarket.Application/Fruitmarket.Application.csproj" />
+  <Project Path="Fruitmarket.Domain/Fruitmarket.Domain.csproj" />
+  <Project Path="Fruitmarket.Infrastructure/Fruitmarket.Infrastructure.csproj" />
+</Solution>

@@ -1,0 +1,37 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Server=db;Port=3306;Database=FruitmarketDb;User=root;Password=RootPass123!;"
+      Jwt__Secret: "LOCAL_DOCKER_TEST_SECRET_REPLACE_IN_PROD!!"
+      Jwt__Issuer: "Fruitmarket.API"
+      Jwt__Audience: "Fruitmarket.React"
+      Cors__ReactOrigins__0: "http://localhost:3000"
+      Cors__ReactOrigins__1: "http://localhost:5173"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: RootPass123!
+      MYSQL_DATABASE: FruitmarketDb
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pRootPass123!"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  mysql_data:
