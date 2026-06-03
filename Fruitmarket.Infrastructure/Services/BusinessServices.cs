@@ -178,7 +178,7 @@ public sealed class CartService(IUnitOfWork uow, ICurrentUserService currentUser
         var product = await uow.Products.GetByIdAsync(request.ProductId, ct) ?? throw new ApiException("Product not found", 404);
         if (product.StockQuantity < request.Quantity) throw new ApiException("Insufficient stock", 409);
         var item = cart.Items.FirstOrDefault(x => x.ProductId == request.ProductId);
-        if (item is null) cart.Items.Add(new CartItem { ProductId = request.ProductId, Quantity = request.Quantity });
+        if (item is null) await uow.CartItems.AddAsync(new CartItem { CartId = cart.Id, ProductId = request.ProductId, Quantity = request.Quantity }, ct);
         else item.Quantity += request.Quantity;
         await uow.SaveChangesAsync(ct);
         return ToDto(await GetCart(ct));
