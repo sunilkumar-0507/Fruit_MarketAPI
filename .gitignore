@@ -44,3 +44,6 @@ Thumbs.db
 ## Crash dumps
 *.stackdump
 requested
+
+# Runtime-uploaded product images
+Fruitmarket.API/wwwroot/uploads/
