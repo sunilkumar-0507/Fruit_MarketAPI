@@ -9,6 +9,12 @@ public sealed class Product : BaseEntity
     public string Slug { get; set; } = string.Empty;
     public string? DescriptionEn { get; set; }
     public string? DescriptionTa { get; set; }
+    public string? AboutEn { get; set; }
+    public string? AboutTa { get; set; }
+    public string? UsageEn { get; set; }
+    public string? UsageTa { get; set; }
+    public string? BenefitsEn { get; set; }
+    public string? BenefitsTa { get; set; }
     public decimal Price { get; set; }
     public int StockQuantity { get; set; }
     public bool IsActive { get; set; } = true;

@@ -136,7 +136,7 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
 
     public async Task<ProductDto> CreateAsync(ProductUpsertRequest request, CancellationToken ct)
     {
-        var product = new Product { NameEn = request.NameEn, NameTa = request.NameTa, DescriptionEn = request.DescriptionEn, DescriptionTa = request.DescriptionTa, Price = request.Price, StockQuantity = request.StockQuantity, CategoryId = request.CategoryId, Slug = await GenerateUniqueSlugAsync(request.NameEn, null, ct) };
+        var product = new Product { NameEn = request.NameEn, NameTa = request.NameTa, DescriptionEn = request.DescriptionEn, DescriptionTa = request.DescriptionTa, AboutEn = request.AboutEn, AboutTa = request.AboutTa, UsageEn = request.UsageEn, UsageTa = request.UsageTa, BenefitsEn = request.BenefitsEn, BenefitsTa = request.BenefitsTa, Price = request.Price, StockQuantity = request.StockQuantity, CategoryId = request.CategoryId, Slug = await GenerateUniqueSlugAsync(request.NameEn, null, ct) };
         foreach (var image in request.Images ?? []) product.Images.Add(new ProductImage { Url = image.Url, AltText = image.AltText, IsPrimary = image.IsPrimary });
         await uow.Products.AddAsync(product, ct);
         await uow.SaveChangesAsync(ct);
@@ -147,7 +147,7 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
     {
         var product = await uow.Products.Query().Include(x => x.Images).FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ApiException("Product not found", 404);
         var nameChanged = !string.Equals(product.NameEn, request.NameEn, StringComparison.Ordinal);
-        product.NameEn = request.NameEn; product.NameTa = request.NameTa; product.DescriptionEn = request.DescriptionEn; product.DescriptionTa = request.DescriptionTa; product.Price = request.Price; product.StockQuantity = request.StockQuantity; product.CategoryId = request.CategoryId;
+        product.NameEn = request.NameEn; product.NameTa = request.NameTa; product.DescriptionEn = request.DescriptionEn; product.DescriptionTa = request.DescriptionTa; product.AboutEn = request.AboutEn; product.AboutTa = request.AboutTa; product.UsageEn = request.UsageEn; product.UsageTa = request.UsageTa; product.BenefitsEn = request.BenefitsEn; product.BenefitsTa = request.BenefitsTa; product.Price = request.Price; product.StockQuantity = request.StockQuantity; product.CategoryId = request.CategoryId;
         if (nameChanged) product.Slug = await GenerateUniqueSlugAsync(request.NameEn, product.Id, ct);
         product.Images.Clear();
         foreach (var image in request.Images ?? []) product.Images.Add(new ProductImage { Url = image.Url, AltText = image.AltText, IsPrimary = image.IsPrimary });
