@@ -21,7 +21,7 @@ public sealed class AdminController(
     /// <summary>Gets all products (admin view).</summary>
     [HttpGet("products")]
     public async Task<ActionResult<PagedResult<ProductDto>>> Products([FromQuery] ProductQuery query, CancellationToken ct)
-        => Ok(await products.GetAsync(query, ct));
+        => Ok(await products.GetAsync(query with { IncludeInactive = true }, ct));
 
     /// <summary>Creates a product.</summary>
     [HttpPost("products")]

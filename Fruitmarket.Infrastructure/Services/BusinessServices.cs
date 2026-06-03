@@ -109,6 +109,7 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
         var page = Math.Max(1, query.PageNumber);
         var size = Math.Clamp(query.PageSize, 1, 100);
         var products = uow.Products.Query().Include(x => x.Category).Include(x => x.Images).Include(x => x.Reviews).AsNoTracking();
+        if (!query.IncludeInactive) products = products.Where(x => x.IsActive);
         if (!string.IsNullOrWhiteSpace(query.Search)) products = products.Where(x => x.NameEn.Contains(query.Search) || x.NameTa.Contains(query.Search) || x.Slug.Contains(query.Search));
         if (query.CategoryId.HasValue) products = products.Where(x => x.CategoryId == query.CategoryId);
         if (query.MinPrice.HasValue) products = products.Where(x => x.Price >= query.MinPrice);
@@ -135,7 +136,7 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
 
     public async Task<ProductDto> CreateAsync(ProductUpsertRequest request, CancellationToken ct)
     {
-        var product = new Product { NameEn = request.NameEn, NameTa = request.NameTa, DescriptionEn = request.DescriptionEn, DescriptionTa = request.DescriptionTa, Price = request.Price, StockQuantity = request.StockQuantity, CategoryId = request.CategoryId, Slug = slugger.GenerateSlug(request.NameEn) };
+        var product = new Product { NameEn = request.NameEn, NameTa = request.NameTa, DescriptionEn = request.DescriptionEn, DescriptionTa = request.DescriptionTa, Price = request.Price, StockQuantity = request.StockQuantity, CategoryId = request.CategoryId, Slug = await GenerateUniqueSlugAsync(request.NameEn, null, ct) };
         foreach (var image in request.Images ?? []) product.Images.Add(new ProductImage { Url = image.Url, AltText = image.AltText, IsPrimary = image.IsPrimary });
         await uow.Products.AddAsync(product, ct);
         await uow.SaveChangesAsync(ct);
@@ -145,7 +146,9 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
     public async Task<ProductDto> UpdateAsync(Guid id, ProductUpsertRequest request, CancellationToken ct)
     {
         var product = await uow.Products.Query().Include(x => x.Images).FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ApiException("Product not found", 404);
-        product.NameEn = request.NameEn; product.NameTa = request.NameTa; product.DescriptionEn = request.DescriptionEn; product.DescriptionTa = request.DescriptionTa; product.Price = request.Price; product.StockQuantity = request.StockQuantity; product.CategoryId = request.CategoryId; product.Slug = slugger.GenerateSlug(request.NameEn);
+        var nameChanged = !string.Equals(product.NameEn, request.NameEn, StringComparison.Ordinal);
+        product.NameEn = request.NameEn; product.NameTa = request.NameTa; product.DescriptionEn = request.DescriptionEn; product.DescriptionTa = request.DescriptionTa; product.Price = request.Price; product.StockQuantity = request.StockQuantity; product.CategoryId = request.CategoryId;
+        if (nameChanged) product.Slug = await GenerateUniqueSlugAsync(request.NameEn, product.Id, ct);
         product.Images.Clear();
         foreach (var image in request.Images ?? []) product.Images.Add(new ProductImage { Url = image.Url, AltText = image.AltText, IsPrimary = image.IsPrimary });
         await uow.SaveChangesAsync(ct);
@@ -158,15 +161,35 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
         product.IsDeleted = true;
         await uow.SaveChangesAsync(ct);
     }
+
+    private async Task<string> GenerateUniqueSlugAsync(string name, Guid? excludeId, CancellationToken ct)
+    {
+        var baseSlug = slugger.GenerateSlug(name);
+        var slug = baseSlug;
+        var suffix = 2;
+        while (await uow.Products.Query().IgnoreQueryFilters().AnyAsync(x => x.Slug == slug && (excludeId == null || x.Id != excludeId.Value), ct))
+            slug = $"{baseSlug}-{suffix++}";
+        return slug;
+    }
 }
 
 public sealed class CategoryService(IUnitOfWork uow, IMapper mapper, ISlugService slugger) : ICategoryService
 {
     public async Task<IReadOnlyList<CategoryDto>> GetAsync(CancellationToken ct) => await uow.Categories.Query().OrderBy(x => x.NameEn).ProjectTo<CategoryDto>(mapper.ConfigurationProvider).ToListAsync(ct);
     public async Task<CategoryDto> GetByIdAsync(Guid id, CancellationToken ct) => mapper.Map<CategoryDto>(await uow.Categories.GetByIdAsync(id, ct) ?? throw new ApiException("Category not found", 404));
-    public async Task<CategoryDto> CreateAsync(CategoryUpsertRequest request, CancellationToken ct) { var c = new Category { NameEn = request.NameEn, NameTa = request.NameTa, DescriptionEn = request.DescriptionEn, DescriptionTa = request.DescriptionTa, Slug = slugger.GenerateSlug(request.NameEn) }; await uow.Categories.AddAsync(c, ct); await uow.SaveChangesAsync(ct); return mapper.Map<CategoryDto>(c); }
-    public async Task<CategoryDto> UpdateAsync(Guid id, CategoryUpsertRequest request, CancellationToken ct) { var c = await uow.Categories.GetByIdAsync(id, ct) ?? throw new ApiException("Category not found", 404); c.NameEn = request.NameEn; c.NameTa = request.NameTa; c.DescriptionEn = request.DescriptionEn; c.DescriptionTa = request.DescriptionTa; c.Slug = slugger.GenerateSlug(request.NameEn); await uow.SaveChangesAsync(ct); return mapper.Map<CategoryDto>(c); }
+    public async Task<CategoryDto> CreateAsync(CategoryUpsertRequest request, CancellationToken ct) { var c = new Category { NameEn = request.NameEn, NameTa = request.NameTa, DescriptionEn = request.DescriptionEn, DescriptionTa = request.DescriptionTa, Slug = await GenerateUniqueSlugAsync(request.NameEn, null, ct) }; await uow.Categories.AddAsync(c, ct); await uow.SaveChangesAsync(ct); return mapper.Map<CategoryDto>(c); }
+    public async Task<CategoryDto> UpdateAsync(Guid id, CategoryUpsertRequest request, CancellationToken ct) { var c = await uow.Categories.GetByIdAsync(id, ct) ?? throw new ApiException("Category not found", 404); var nameChanged = !string.Equals(c.NameEn, request.NameEn, StringComparison.Ordinal); c.NameEn = request.NameEn; c.NameTa = request.NameTa; c.DescriptionEn = request.DescriptionEn; c.DescriptionTa = request.DescriptionTa; if (nameChanged) c.Slug = await GenerateUniqueSlugAsync(request.NameEn, c.Id, ct); await uow.SaveChangesAsync(ct); return mapper.Map<CategoryDto>(c); }
     public async Task DeleteAsync(Guid id, CancellationToken ct) { var c = await uow.Categories.GetByIdAsync(id, ct) ?? throw new ApiException("Category not found", 404); uow.Categories.Remove(c); await uow.SaveChangesAsync(ct); }
+
+    private async Task<string> GenerateUniqueSlugAsync(string name, Guid? excludeId, CancellationToken ct)
+    {
+        var baseSlug = slugger.GenerateSlug(name);
+        var slug = baseSlug;
+        var suffix = 2;
+        while (await uow.Categories.Query().AnyAsync(x => x.Slug == slug && (excludeId == null || x.Id != excludeId.Value), ct))
+            slug = $"{baseSlug}-{suffix++}";
+        return slug;
+    }
 }
 
 public sealed class CartService(IUnitOfWork uow, ICurrentUserService currentUser) : ICartService
@@ -197,7 +220,8 @@ public sealed class OrderService(IUnitOfWork uow, ICurrentUserService currentUse
         var cart = await uow.Carts.Query().Include(x => x.Items).ThenInclude(x => x.Product).FirstOrDefaultAsync(x => x.UserId == currentUser.UserId, ct) ?? throw new ApiException("Cart not found", 404);
         if (!cart.Items.Any()) throw new ApiException("Cart is empty", 400);
         var subtotal = cart.Items.Sum(x => (x.Product?.Price ?? 0) * x.Quantity);
-        var coupon = string.IsNullOrWhiteSpace(request.CouponCode) ? null : await uow.Coupons.FirstOrDefaultAsync(x => x.Code == request.CouponCode && x.IsActive, ct);
+        var couponCode = request.CouponCode?.ToUpperInvariant();
+        var coupon = string.IsNullOrWhiteSpace(couponCode) ? null : await uow.Coupons.FirstOrDefaultAsync(x => x.Code == couponCode && x.IsActive, ct);
         var discount = coupon is not null && subtotal >= (coupon.MinimumOrderAmount ?? 0) && coupon.StartsAtUtc <= DateTime.UtcNow && coupon.EndsAtUtc >= DateTime.UtcNow ? coupon.DiscountAmount : 0;
         var order = new Order { UserId = currentUser.UserId, OrderNumber = $"FM-{DateTime.UtcNow:yyyyMMddHHmmss}", ShippingAddressId = request.ShippingAddressId, CouponId = coupon?.Id, Subtotal = subtotal, Discount = discount, Total = Math.Max(0, subtotal - discount) };
         foreach (var item in cart.Items) { if (item.Product is null) continue; if (item.Product.StockQuantity < item.Quantity) throw new ApiException($"{item.Product.NameEn} is out of stock", 409); item.Product.StockQuantity -= item.Quantity; order.Items.Add(new OrderItem { ProductId = item.ProductId, ProductName = item.Product.NameEn, UnitPrice = item.Product.Price, Quantity = item.Quantity }); uow.CartItems.Remove(item); }
@@ -205,7 +229,11 @@ public sealed class OrderService(IUnitOfWork uow, ICurrentUserService currentUse
         await uow.SaveChangesAsync(ct);
         return ToDto(order);
     }
-    public async Task<IReadOnlyList<OrderDto>> GetHistoryAsync(CancellationToken ct) => await uow.Orders.Query().Include(x => x.Items).Where(x => x.UserId == currentUser.UserId).OrderByDescending(x => x.CreatedAtUtc).Select(x => ToDto(x)).ToListAsync(ct);
+    public async Task<IReadOnlyList<OrderDto>> GetHistoryAsync(CancellationToken ct)
+    {
+        var orders = await uow.Orders.Query().Include(x => x.Items).Where(x => x.UserId == currentUser.UserId).OrderByDescending(x => x.CreatedAtUtc).ToListAsync(ct);
+        return orders.Select(ToDto).ToList();
+    }
     public async Task<OrderDto> GetByIdAsync(Guid id, CancellationToken ct) => ToDto(await uow.Orders.Query().Include(x => x.Items).FirstOrDefaultAsync(x => x.Id == id && x.UserId == currentUser.UserId, ct) ?? throw new ApiException("Order not found", 404));
     public async Task<OrderDto> CancelAsync(Guid id, CancellationToken ct) { var order = await uow.Orders.Query().Include(x => x.Items).FirstOrDefaultAsync(x => x.Id == id && x.UserId == currentUser.UserId, ct) ?? throw new ApiException("Order not found", 404); if (order.Status is OrderStatus.Shipped or OrderStatus.Delivered) throw new ApiException("Order cannot be cancelled", 409); order.Status = OrderStatus.Cancelled; await uow.SaveChangesAsync(ct); return ToDto(order); }
 
@@ -215,8 +243,8 @@ public sealed class OrderService(IUnitOfWork uow, ICurrentUserService currentUse
         var size = Math.Clamp(pageSize, 1, 100);
         var query = uow.Orders.Query().Include(x => x.Items).OrderByDescending(x => x.CreatedAtUtc);
         var total = await query.CountAsync(ct);
-        var items = await query.Skip((page - 1) * size).Take(size).Select(x => ToDto(x)).ToListAsync(ct);
-        return new PagedResult<OrderDto>(items, page, size, total);
+        var entities = await query.Skip((page - 1) * size).Take(size).ToListAsync(ct);
+        return new PagedResult<OrderDto>(entities.Select(ToDto).ToList(), page, size, total);
     }
 
     public async Task<OrderDto> UpdateStatusAsync(Guid id, OrderStatus status, CancellationToken ct)
@@ -232,9 +260,18 @@ public sealed class OrderService(IUnitOfWork uow, ICurrentUserService currentUse
 
 public sealed class ReviewService(IUnitOfWork uow, ICurrentUserService currentUser) : IReviewService
 {
-    public async Task<ReviewDto> AddAsync(string productSlug, ReviewRequest request, CancellationToken ct) { var product = await uow.Products.FirstOrDefaultAsync(x => x.Slug == productSlug, ct) ?? throw new ApiException("Product not found", 404); var review = new Review { ProductId = product.Id, UserId = currentUser.UserId, Rating = request.Rating, Comment = request.Comment }; await uow.Reviews.AddAsync(review, ct); await uow.SaveChangesAsync(ct); return new(review.Id, review.ProductId, "", review.Rating, review.Comment, review.CreatedAtUtc); }
+    public async Task<ReviewDto> AddAsync(string productSlug, ReviewRequest request, CancellationToken ct)
+    {
+        var product = await uow.Products.FirstOrDefaultAsync(x => x.Slug == productSlug, ct) ?? throw new ApiException("Product not found", 404);
+        if (await uow.Reviews.Query().AnyAsync(x => x.ProductId == product.Id && x.UserId == currentUser.UserId, ct)) throw new ApiException("You have already reviewed this product", 409);
+        var user = await uow.Users.GetByIdAsync(currentUser.UserId, ct);
+        var review = new Review { ProductId = product.Id, UserId = currentUser.UserId, Rating = request.Rating, Comment = request.Comment };
+        await uow.Reviews.AddAsync(review, ct);
+        await uow.SaveChangesAsync(ct);
+        return new(review.Id, review.ProductId, user?.FullName ?? "", review.Rating, review.Comment, review.CreatedAtUtc);
+    }
     public async Task<IReadOnlyList<ReviewDto>> GetByProductAsync(string productSlug, CancellationToken ct) => await uow.Reviews.Query().Include(x => x.User).Include(x => x.Product).Where(x => x.Product!.Slug == productSlug).OrderByDescending(x => x.CreatedAtUtc).Select(x => new ReviewDto(x.Id, x.ProductId, x.User!.FullName, x.Rating, x.Comment, x.CreatedAtUtc)).ToListAsync(ct);
-    public async Task<ReviewDto> UpdateAsync(Guid id, ReviewRequest request, CancellationToken ct) { var review = await uow.Reviews.GetByIdAsync(id, ct) ?? throw new ApiException("Review not found", 404); if (review.UserId != currentUser.UserId) throw new ApiException("Forbidden", 403); review.Rating = request.Rating; review.Comment = request.Comment; await uow.SaveChangesAsync(ct); return new(review.Id, review.ProductId, "", review.Rating, review.Comment, review.CreatedAtUtc); }
+    public async Task<ReviewDto> UpdateAsync(Guid id, ReviewRequest request, CancellationToken ct) { var review = await uow.Reviews.GetByIdAsync(id, ct) ?? throw new ApiException("Review not found", 404); if (review.UserId != currentUser.UserId) throw new ApiException("Forbidden", 403); review.Rating = request.Rating; review.Comment = request.Comment; await uow.SaveChangesAsync(ct); var user = await uow.Users.GetByIdAsync(currentUser.UserId, ct); return new(review.Id, review.ProductId, user?.FullName ?? "", review.Rating, review.Comment, review.CreatedAtUtc); }
     public async Task DeleteAsync(Guid id, CancellationToken ct) { var review = await uow.Reviews.GetByIdAsync(id, ct) ?? throw new ApiException("Review not found", 404); if (review.UserId != currentUser.UserId) throw new ApiException("Forbidden", 403); uow.Reviews.Remove(review); await uow.SaveChangesAsync(ct); }
 }
 

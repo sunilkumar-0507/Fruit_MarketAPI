@@ -16,7 +16,7 @@ public sealed class ProductsController(IProductService products, IReviewService 
 
     /// <summary>Searches products.</summary>
     [HttpGet("search")]
-    public async Task<ActionResult<PagedResult<ProductDto>>> Search([FromQuery] string q, CancellationToken ct) => Ok(await products.GetAsync(new ProductQuery(q, null, null, null, null, false), ct));
+    public async Task<ActionResult<PagedResult<ProductDto>>> Search([FromQuery] string q, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken ct = default) => Ok(await products.GetAsync(new ProductQuery(q, null, null, null, null, false, pageNumber, pageSize), ct));
 
     /// <summary>Gets a product by slug.</summary>
     [HttpGet("{slug}")]

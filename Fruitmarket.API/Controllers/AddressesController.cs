@@ -50,6 +50,7 @@ public sealed class AddressesController(IUnitOfWork uow, ICurrentUserService cur
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var address = await uow.Addresses.FirstOrDefaultAsync(x => x.Id == id && x.UserId == currentUser.UserId, ct) ?? throw new ApiException("Address not found", 404);
+        if (await uow.Orders.Query().AnyAsync(x => x.ShippingAddressId == id, ct)) throw new ApiException("Address is used by existing orders and cannot be deleted", 409);
         uow.Addresses.Remove(address);
         await uow.SaveChangesAsync(ct);
         return NoContent();

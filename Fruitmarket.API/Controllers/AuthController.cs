@@ -2,11 +2,13 @@ using Fruitmarket.Application.DTOs;
 using Fruitmarket.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Fruitmarket.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[EnableRateLimiting("auth")]
 public sealed class AuthController(IAuthService authService) : ControllerBase
 {
     /// <summary>Registers a customer account.</summary>

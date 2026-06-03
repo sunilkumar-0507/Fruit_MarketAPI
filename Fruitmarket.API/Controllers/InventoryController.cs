@@ -2,6 +2,7 @@ using Fruitmarket.Application.Abstractions;
 using Fruitmarket.Application.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fruitmarket.API.Controllers;
 
@@ -20,5 +21,5 @@ public sealed class InventoryController(IUnitOfWork uow) : ControllerBase
     }
 
     [HttpGet("out-of-stock")]
-    public IActionResult OutOfStock() => Ok(uow.Products.Query().Where(x => x.StockQuantity <= 0).Select(x => new { x.Id, x.NameEn, x.Slug, x.StockQuantity }).ToList());
+    public async Task<IActionResult> OutOfStock(CancellationToken ct) => Ok(await uow.Products.Query().Where(x => x.StockQuantity <= 0).Select(x => new { x.Id, x.NameEn, x.Slug, x.StockQuantity }).ToListAsync(ct));
 }
