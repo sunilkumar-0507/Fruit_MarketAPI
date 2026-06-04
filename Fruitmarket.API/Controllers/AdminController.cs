@@ -14,8 +14,16 @@ public sealed class AdminController(
     IProductService products,
     ICategoryService categories,
     IOrderService orders,
-    ICouponService coupons) : ControllerBase
+    ICouponService coupons,
+    IAuthService auth) : ControllerBase
 {
+    // ── Users ─────────────────────────────────────────────────────
+
+    /// <summary>Gets all users with their roles (paged). New registrations are "Customer"; change to "Admin" in the database.</summary>
+    [HttpGet("users")]
+    public async Task<ActionResult<PagedResult<UserDto>>> Users([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(await auth.GetUsersAsync(pageNumber, pageSize, ct));
+
     // ── Products ─────────────────────────────────────────────────
 
     /// <summary>Gets all products (admin view).</summary>

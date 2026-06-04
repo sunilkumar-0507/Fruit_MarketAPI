@@ -56,6 +56,19 @@ public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTok
         return new UserDto(user.Id, user.FullName, user.Email, user.PhoneNumber, user.EmailConfirmed, user.Roles.Select(x => x.Name).ToArray());
     }
 
+    public async Task<PagedResult<UserDto>> GetUsersAsync(int pageNumber, int pageSize, CancellationToken ct)
+    {
+        var page = Math.Max(1, pageNumber);
+        var size = Math.Clamp(pageSize, 1, 100);
+        var query = uow.Users.Query().Include(x => x.Roles).OrderByDescending(x => x.CreatedAtUtc);
+        var total = await query.CountAsync(ct);
+        var users = await query.Skip((page - 1) * size).Take(size).ToListAsync(ct);
+        var items = users
+            .Select(u => new UserDto(u.Id, u.FullName, u.Email, u.PhoneNumber, u.EmailConfirmed, u.Roles.Select(r => r.Name).ToArray()))
+            .ToList();
+        return new PagedResult<UserDto>(items, page, size, total);
+    }
+
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken ct)
     {
         var user = await uow.Users.FirstOrDefaultAsync(x => x.Email == request.Email.ToLowerInvariant(), ct);

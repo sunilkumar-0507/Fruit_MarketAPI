@@ -11,6 +11,7 @@ public interface IAuthService
     Task<AuthResponse> RefreshAsync(RefreshTokenRequest request, CancellationToken ct);
     Task LogoutAsync(RefreshTokenRequest request, CancellationToken ct);
     Task<UserDto> GetProfileAsync(CancellationToken ct);
+    Task<PagedResult<UserDto>> GetUsersAsync(int pageNumber, int pageSize, CancellationToken ct);
     Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken ct);
     Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct);
     Task VerifyEmailAsync(VerifyEmailRequest request, CancellationToken ct);
