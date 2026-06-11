@@ -1,0 +1,63 @@
+# Production stack for VPS: API + MySQL + Caddy (auto-HTTPS reverse proxy).
+# Usage on the VPS:
+#   cp .env.example .env   # then edit .env with real secrets + your domain
+#   docker compose -f docker-compose.prod.yml up -d --build
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8080"                      # internal only; Caddy talks to this, not the host
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Server=db;Port=3306;Database=${MYSQL_DATABASE};User=root;Password=${MYSQL_ROOT_PASSWORD};"
+      Jwt__Secret: "${JWT_SECRET}"
+      Jwt__Issuer: "Fruitmarket.API"
+      Jwt__Audience: "Fruitmarket.React"
+      Cors__ReactOrigins__0: "https://tenkasifresh.in"
+      Cors__ReactOrigins__1: "https://www.tenkasifresh.in"
+      SeedAdmin__Email: "${SEED_ADMIN_EMAIL}"
+      SeedAdmin__Password: "${SEED_ADMIN_PASSWORD}"
+    volumes:
+      - uploads_data:/app/wwwroot/uploads   # persist uploaded product images across redeploys
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data        # stores Let's Encrypt certs (must persist!)
+      - caddy_config:/config
+    depends_on:
+      - api
+    environment:
+      API_DOMAIN: "${API_DOMAIN}"
+
+volumes:
+  mysql_data:
+  uploads_data:
+  caddy_data:
+  caddy_config:

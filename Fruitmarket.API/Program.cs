@@ -132,11 +132,16 @@ app.UseRequestLocalization(new RequestLocalizationOptions
 });
 
 // ── Middleware pipeline ────────────────────────────────────────────────────────
-// Trust Azure's load balancer so UseHttpsRedirection sees the correct scheme
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+// Trust the reverse proxy (Caddy/Nginx) so UseHttpsRedirection sees the correct scheme.
+// In Docker the proxy is on a different container IP, so the default loopback-only
+// trust must be cleared or X-Forwarded-Proto is ignored and HTTPS redirects loop.
+var forwardedOptions = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+};
+forwardedOptions.KnownNetworks.Clear();
+forwardedOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedOptions);
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
