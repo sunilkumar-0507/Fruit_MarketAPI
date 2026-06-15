@@ -29,5 +29,15 @@ public static class SeedData
             new ProductImage { Id = Guid.Parse("88888888-8888-8888-8888-888888888888"), ProductId = BananaId, Url = "https://images.unsplash.com/photo-1603833665858-e61d17a86224", AltText = "Bananas", IsPrimary = true, CreatedAtUtc = created });
         modelBuilder.Entity<Coupon>().HasData(
             new Coupon { Id = Guid.Parse("99999999-9999-9999-9999-999999999999"), Code = "WELCOME10", DiscountAmount = 10, MinimumOrderAmount = 100, StartsAtUtc = created, EndsAtUtc = created.AddYears(5), CreatedAtUtc = created });
+        modelBuilder.Entity<Farmer>().HasData(
+            new Farmer { Id = Guid.Parse("fa000001-0000-0000-0000-000000000001"), Name = "Murugesan P.", Village = "Tenkasi", Produce = "Mango, Banana", WeeklySupplyKg = 800, Rating = 4.9, Phone = "+91 94433 00001", IsActive = true, CreatedAtUtc = created },
+            new Farmer { Id = Guid.Parse("fa000002-0000-0000-0000-000000000002"), Name = "Rajan T.", Village = "Courtallam", Produce = "Guava, Papaya", WeeklySupplyKg = 450, Rating = 4.7, Phone = "+91 94433 00002", IsActive = true, CreatedAtUtc = created },
+            new Farmer { Id = Guid.Parse("fa000003-0000-0000-0000-000000000003"), Name = "Selvam K.", Village = "Alangulam", Produce = "Banana, Jackfruit", WeeklySupplyKg = 600, Rating = 4.8, Phone = "+91 94433 00003", IsActive = true, CreatedAtUtc = created },
+            new Farmer { Id = Guid.Parse("fa000004-0000-0000-0000-000000000004"), Name = "Lakshmi A.", Village = "Kadayanallur", Produce = "Pomegranate, Grapes", WeeklySupplyKg = 300, Rating = 4.6, Phone = "+91 94433 00004", IsActive = false, CreatedAtUtc = created },
+            new Farmer { Id = Guid.Parse("fa000005-0000-0000-0000-000000000005"), Name = "Kumar M.", Village = "Sankarankovil", Produce = "Watermelon, Pineapple", WeeklySupplyKg = 500, Rating = 4.5, Phone = "+91 94433 00005", IsActive = true, CreatedAtUtc = created },
+            new Farmer { Id = Guid.Parse("fa000006-0000-0000-0000-000000000006"), Name = "Pandian S.", Village = "Tirunelveli", Produce = "Dry Fruits, Seasonal", WeeklySupplyKg = 250, Rating = 4.7, Phone = "+91 94433 00006", IsActive = true, CreatedAtUtc = created });
+        modelBuilder.Entity<Basket>().HasData(
+            new Basket { Id = Guid.Parse("ba000001-0000-0000-0000-000000000001"), Name = "Pongal Festival Basket", Description = "Handcrafted festival hamper with premium mangoes, bananas, and pomegranates.", Price = 1450, Images = ["/images/categories/fruit-baskets.jpg", "/images/products/mangoes.jpeg", "/images/categories/p-pomegranate.jpg"], Items = "Mango × 4, Banana × 6, Pomegranate × 2", IsActive = true, CreatedAtUtc = created },
+            new Basket { Id = Guid.Parse("ba000002-0000-0000-0000-000000000002"), Name = "Exotic Mix Combo", Description = "Imported tropical selection — rambutan, dragon fruit, and mangosteen.", Price = 850, Images = ["/images/products/wa2-rambutan.jpeg", "/images/products/wa2-dragon-fruit.jpeg", "/images/products/wa2-mangosteen.jpeg", "/images/categories/p-pomegranate.jpg"], Items = "Rambutan × 6, Dragon Fruit × 2, Mangosteen × 3", IsActive = true, CreatedAtUtc = created });
     }
 }

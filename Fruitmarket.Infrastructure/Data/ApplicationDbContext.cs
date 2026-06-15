@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Fruitmarket.Domain.Common;
 using Fruitmarket.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace Fruitmarket.Infrastructure.Data;
 
@@ -20,6 +22,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Farmer> Farmers => Set<Farmer>();
+    public DbSet<Basket> Baskets => Set<Basket>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,6 +72,33 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.HasIndex(x => x.Code).IsUnique();
             e.Property(x => x.DiscountAmount).HasColumnType("decimal(18,2)");
             e.Property(x => x.MinimumOrderAmount).HasColumnType("decimal(18,2)");
+        });
+        modelBuilder.Entity<Farmer>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(160);
+            e.Property(x => x.Village).HasMaxLength(160);
+            e.Property(x => x.Produce).HasMaxLength(300);
+            e.Property(x => x.Phone).HasMaxLength(40);
+            e.HasQueryFilter(x => !x.IsDeleted);
+        });
+        modelBuilder.Entity<Basket>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.Items).HasMaxLength(1000);
+            e.Property(x => x.Price).HasColumnType("decimal(18,2)");
+            // Persist the image-URL list as a JSON array in a single text column.
+            var imagesComparer = new ValueComparer<List<string>>(
+                (a, b) => (a ?? new()).SequenceEqual(b ?? new()),
+                v => v == null ? 0 : v.Aggregate(0, (acc, s) => HashCode.Combine(acc, s.GetHashCode())),
+                v => v.ToList());
+            e.Property(x => x.Images)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                    v => string.IsNullOrWhiteSpace(v) ? new List<string>() : JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>())
+                .HasColumnType("longtext")
+                .Metadata.SetValueComparer(imagesComparer);
+            e.HasQueryFilter(x => !x.IsDeleted);
         });
         SeedData.Seed(modelBuilder);
     }

@@ -18,5 +18,7 @@ public sealed class UnitOfWork(ApplicationDbContext context) : IUnitOfWork
     public IRepository<Address> Addresses { get; } = new Repository<Address>(context);
     public IRepository<Coupon> Coupons { get; } = new Repository<Coupon>(context);
     public IRepository<RefreshToken> RefreshTokens { get; } = new Repository<RefreshToken>(context);
+    public IRepository<Farmer> Farmers { get; } = new Repository<Farmer>(context);
+    public IRepository<Basket> Baskets { get; } = new Repository<Basket>(context);
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => context.SaveChangesAsync(cancellationToken);
 }

@@ -14,5 +14,7 @@ public sealed class MappingProfile : Profile
             .ForCtorParam("IsOutOfStock", o => o.MapFrom(p => p.StockQuantity <= 0))
             .ForCtorParam("Rating", o => o.MapFrom(p => p.Reviews.Any() ? p.Reviews.Average(r => r.Rating) : 0));
         CreateMap<Address, AddressDto>();
+        CreateMap<Farmer, FarmerDto>();
+        CreateMap<Basket, BasketDto>();
     }
 }

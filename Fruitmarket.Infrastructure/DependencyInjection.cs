@@ -14,6 +14,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<JwtOptions>(configuration.GetSection("Jwt"));
+        services.Configure<EmailOptions>(configuration.GetSection("Email"));
         var connectionString = configuration.GetConnectionString("DefaultConnection")!;
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 0))));
@@ -29,6 +30,9 @@ public static class DependencyInjection
         services.AddScoped<IReviewService, ReviewService>();
         services.AddScoped<IWishlistService, WishlistService>();
         services.AddScoped<ICouponService, CouponService>();
+        services.AddScoped<IFarmerService, FarmerService>();
+        services.AddScoped<IBasketService, BasketService>();
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
         return services;
     }
 }

@@ -79,3 +79,21 @@ public interface ICouponService
     Task DeleteAsync(Guid id, CancellationToken ct);
     Task<CouponValidationResponse> ValidateAsync(string code, CancellationToken ct);
 }
+
+public interface IFarmerService
+{
+    Task<IReadOnlyList<FarmerDto>> GetAsync(CancellationToken ct);
+    Task<FarmerDto> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<FarmerDto> CreateAsync(FarmerUpsertRequest request, CancellationToken ct);
+    Task<FarmerDto> UpdateAsync(Guid id, FarmerUpsertRequest request, CancellationToken ct);
+    Task DeleteAsync(Guid id, CancellationToken ct);
+}
+
+public interface IBasketService
+{
+    Task<IReadOnlyList<BasketDto>> GetAsync(CancellationToken ct);
+    Task<BasketDto> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<BasketDto> CreateAsync(BasketUpsertRequest request, CancellationToken ct);
+    Task<BasketDto> UpdateAsync(Guid id, BasketUpsertRequest request, CancellationToken ct);
+    Task DeleteAsync(Guid id, CancellationToken ct);
+}

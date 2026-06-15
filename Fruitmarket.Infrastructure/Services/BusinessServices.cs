@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace Fruitmarket.Infrastructure.Services;
 
-public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTokenService jwt, ICurrentUserService currentUser, IOptions<JwtOptions> jwtOptions) : IAuthService
+public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTokenService jwt, ICurrentUserService currentUser, IOptions<JwtOptions> jwtOptions, IEmailSender emailSender, IOptions<EmailOptions> emailOptions) : IAuthService
 {
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct)
     {
@@ -72,11 +72,23 @@ public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTok
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken ct)
     {
         var user = await uow.Users.FirstOrDefaultAsync(x => x.Email == request.Email.ToLowerInvariant(), ct);
-        if (user is not null)
+        // Always return without revealing whether the email exists (prevents account enumeration).
+        if (user is null) return;
+
+        user.PasswordResetToken = Guid.NewGuid().ToString("N");
+        user.PasswordResetTokenExpiresAtUtc = DateTime.UtcNow.AddMinutes(30);
+        await uow.SaveChangesAsync(ct);
+
+        var baseUrl = emailOptions.Value.FrontendUrl.TrimEnd('/');
+        var resetUrl = $"{baseUrl}/reset-password?email={Uri.EscapeDataString(user.Email)}&token={user.PasswordResetToken}";
+        // Best-effort: a mail outage must not 500 the request or leak that the account exists.
+        try
         {
-            user.PasswordResetToken = Guid.NewGuid().ToString("N");
-            user.PasswordResetTokenExpiresAtUtc = DateTime.UtcNow.AddMinutes(30);
-            await uow.SaveChangesAsync(ct);
+            await emailSender.SendAsync(user.Email, "Reset your Tenkasi Fresh password", EmailTemplates.PasswordReset(resetUrl), ct);
+        }
+        catch
+        {
+            // swallowed intentionally — token is stored; user can retry
         }
     }
 
@@ -339,4 +351,74 @@ public sealed class CouponService(IUnitOfWork uow) : ICouponService
     }
 
     private static CouponDto ToDto(Coupon c) => new(c.Id, c.Code, c.DiscountAmount, c.MinimumOrderAmount, c.StartsAtUtc, c.EndsAtUtc, c.IsActive);
+}
+
+public sealed class FarmerService(IUnitOfWork uow, IMapper mapper) : IFarmerService
+{
+    public async Task<IReadOnlyList<FarmerDto>> GetAsync(CancellationToken ct)
+    {
+        var farmers = await uow.Farmers.Query().OrderBy(x => x.Name).ToListAsync(ct);
+        return farmers.Select(mapper.Map<FarmerDto>).ToList();
+    }
+
+    public async Task<FarmerDto> GetByIdAsync(Guid id, CancellationToken ct) =>
+        mapper.Map<FarmerDto>(await uow.Farmers.GetByIdAsync(id, ct) ?? throw new ApiException("Farmer not found", 404));
+
+    public async Task<FarmerDto> CreateAsync(FarmerUpsertRequest request, CancellationToken ct)
+    {
+        var farmer = new Farmer { Name = request.Name, Village = request.Village, Produce = request.Produce, WeeklySupplyKg = request.WeeklySupplyKg, Rating = request.Rating, Phone = request.Phone, IsActive = request.IsActive };
+        await uow.Farmers.AddAsync(farmer, ct);
+        await uow.SaveChangesAsync(ct);
+        return mapper.Map<FarmerDto>(farmer);
+    }
+
+    public async Task<FarmerDto> UpdateAsync(Guid id, FarmerUpsertRequest request, CancellationToken ct)
+    {
+        var farmer = await uow.Farmers.GetByIdAsync(id, ct) ?? throw new ApiException("Farmer not found", 404);
+        farmer.Name = request.Name; farmer.Village = request.Village; farmer.Produce = request.Produce; farmer.WeeklySupplyKg = request.WeeklySupplyKg; farmer.Rating = request.Rating; farmer.Phone = request.Phone; farmer.IsActive = request.IsActive;
+        await uow.SaveChangesAsync(ct);
+        return mapper.Map<FarmerDto>(farmer);
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var farmer = await uow.Farmers.GetByIdAsync(id, ct) ?? throw new ApiException("Farmer not found", 404);
+        farmer.IsDeleted = true;
+        await uow.SaveChangesAsync(ct);
+    }
+}
+
+public sealed class BasketService(IUnitOfWork uow, IMapper mapper) : IBasketService
+{
+    public async Task<IReadOnlyList<BasketDto>> GetAsync(CancellationToken ct)
+    {
+        var baskets = await uow.Baskets.Query().Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync(ct);
+        return baskets.Select(mapper.Map<BasketDto>).ToList();
+    }
+
+    public async Task<BasketDto> GetByIdAsync(Guid id, CancellationToken ct) =>
+        mapper.Map<BasketDto>(await uow.Baskets.GetByIdAsync(id, ct) ?? throw new ApiException("Basket not found", 404));
+
+    public async Task<BasketDto> CreateAsync(BasketUpsertRequest request, CancellationToken ct)
+    {
+        var basket = new Basket { Name = request.Name, Description = request.Description, Price = request.Price, Images = request.Images?.ToList() ?? [], Items = request.Items, IsActive = request.IsActive };
+        await uow.Baskets.AddAsync(basket, ct);
+        await uow.SaveChangesAsync(ct);
+        return mapper.Map<BasketDto>(basket);
+    }
+
+    public async Task<BasketDto> UpdateAsync(Guid id, BasketUpsertRequest request, CancellationToken ct)
+    {
+        var basket = await uow.Baskets.GetByIdAsync(id, ct) ?? throw new ApiException("Basket not found", 404);
+        basket.Name = request.Name; basket.Description = request.Description; basket.Price = request.Price; basket.Images = request.Images?.ToList() ?? []; basket.Items = request.Items; basket.IsActive = request.IsActive;
+        await uow.SaveChangesAsync(ct);
+        return mapper.Map<BasketDto>(basket);
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var basket = await uow.Baskets.GetByIdAsync(id, ct) ?? throw new ApiException("Basket not found", 404);
+        basket.IsDeleted = true;
+        await uow.SaveChangesAsync(ct);
+    }
 }

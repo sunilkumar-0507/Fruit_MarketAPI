@@ -15,6 +15,8 @@ public sealed class AdminController(
     ICategoryService categories,
     IOrderService orders,
     ICouponService coupons,
+    IFarmerService farmers,
+    IBasketService baskets,
     IAuthService auth) : ControllerBase
 {
     // ── Users ─────────────────────────────────────────────────────
@@ -113,6 +115,61 @@ public sealed class AdminController(
     public async Task<IActionResult> DeleteCoupon(Guid id, CancellationToken ct)
     {
         await coupons.DeleteAsync(id, ct);
+        return NoContent();
+    }
+
+    // ── Farmers ───────────────────────────────────────────────────
+
+    /// <summary>Gets all partner farmers.</summary>
+    [HttpGet("farmers")]
+    public async Task<ActionResult<IReadOnlyList<FarmerDto>>> GetFarmers(CancellationToken ct)
+        => Ok(await farmers.GetAsync(ct));
+
+    /// <summary>Gets a farmer by ID.</summary>
+    [HttpGet("farmers/{id:guid}")]
+    public async Task<ActionResult<FarmerDto>> GetFarmer(Guid id, CancellationToken ct)
+        => Ok(await farmers.GetByIdAsync(id, ct));
+
+    /// <summary>Creates a farmer.</summary>
+    [HttpPost("farmers")]
+    public async Task<ActionResult<FarmerDto>> CreateFarmer(FarmerUpsertRequest request, CancellationToken ct)
+        => Created(string.Empty, await farmers.CreateAsync(request, ct));
+
+    /// <summary>Updates a farmer.</summary>
+    [HttpPut("farmers/{id:guid}")]
+    public async Task<ActionResult<FarmerDto>> UpdateFarmer(Guid id, FarmerUpsertRequest request, CancellationToken ct)
+        => Ok(await farmers.UpdateAsync(id, request, ct));
+
+    /// <summary>Soft-deletes a farmer.</summary>
+    [HttpDelete("farmers/{id:guid}")]
+    public async Task<IActionResult> DeleteFarmer(Guid id, CancellationToken ct)
+    {
+        await farmers.DeleteAsync(id, ct);
+        return NoContent();
+    }
+
+    // ── Baskets ───────────────────────────────────────────────────
+
+    /// <summary>Gets all curated baskets.</summary>
+    [HttpGet("baskets")]
+    public async Task<ActionResult<IReadOnlyList<BasketDto>>> GetBaskets(CancellationToken ct)
+        => Ok(await baskets.GetAsync(ct));
+
+    /// <summary>Creates a basket.</summary>
+    [HttpPost("baskets")]
+    public async Task<ActionResult<BasketDto>> CreateBasket(BasketUpsertRequest request, CancellationToken ct)
+        => Created(string.Empty, await baskets.CreateAsync(request, ct));
+
+    /// <summary>Updates a basket.</summary>
+    [HttpPut("baskets/{id:guid}")]
+    public async Task<ActionResult<BasketDto>> UpdateBasket(Guid id, BasketUpsertRequest request, CancellationToken ct)
+        => Ok(await baskets.UpdateAsync(id, request, ct));
+
+    /// <summary>Soft-deletes a basket.</summary>
+    [HttpDelete("baskets/{id:guid}")]
+    public async Task<IActionResult> DeleteBasket(Guid id, CancellationToken ct)
+    {
+        await baskets.DeleteAsync(id, ct);
         return NoContent();
     }
 }

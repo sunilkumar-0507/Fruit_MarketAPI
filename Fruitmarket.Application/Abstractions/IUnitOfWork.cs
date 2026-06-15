@@ -16,5 +16,7 @@ public interface IUnitOfWork
     IRepository<Address> Addresses { get; }
     IRepository<Coupon> Coupons { get; }
     IRepository<RefreshToken> RefreshTokens { get; }
+    IRepository<Farmer> Farmers { get; }
+    IRepository<Basket> Baskets { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

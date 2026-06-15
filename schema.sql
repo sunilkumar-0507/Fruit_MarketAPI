@@ -955,5 +955,109 @@ DELIMITER ;
 CALL MigrationsScript();
 DROP PROCEDURE MigrationsScript;
 
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260615121224_AddFarmersAndBaskets') THEN
+
+    CREATE TABLE `Baskets` (
+        `Id` char(36) COLLATE ascii_general_ci NOT NULL,
+        `Name` varchar(200) CHARACTER SET utf8mb4 NOT NULL,
+        `Description` varchar(1000) CHARACTER SET utf8mb4 NOT NULL,
+        `Price` decimal(18,2) NOT NULL,
+        `Images` longtext CHARACTER SET utf8mb4 NOT NULL,
+        `Items` varchar(1000) CHARACTER SET utf8mb4 NOT NULL,
+        `IsActive` tinyint(1) NOT NULL,
+        `CreatedAtUtc` datetime(6) NOT NULL,
+        `UpdatedAtUtc` datetime(6) NULL,
+        `IsDeleted` tinyint(1) NOT NULL,
+        CONSTRAINT `PK_Baskets` PRIMARY KEY (`Id`)
+    ) CHARACTER SET=utf8mb4;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260615121224_AddFarmersAndBaskets') THEN
+
+    CREATE TABLE `Farmers` (
+        `Id` char(36) COLLATE ascii_general_ci NOT NULL,
+        `Name` varchar(160) CHARACTER SET utf8mb4 NOT NULL,
+        `Village` varchar(160) CHARACTER SET utf8mb4 NULL,
+        `Produce` varchar(300) CHARACTER SET utf8mb4 NULL,
+        `WeeklySupplyKg` int NULL,
+        `Rating` double NULL,
+        `Phone` varchar(40) CHARACTER SET utf8mb4 NULL,
+        `IsActive` tinyint(1) NOT NULL,
+        `CreatedAtUtc` datetime(6) NOT NULL,
+        `UpdatedAtUtc` datetime(6) NULL,
+        `IsDeleted` tinyint(1) NOT NULL,
+        CONSTRAINT `PK_Farmers` PRIMARY KEY (`Id`)
+    ) CHARACTER SET=utf8mb4;
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260615121224_AddFarmersAndBaskets') THEN
+
+    INSERT INTO `Baskets` (`Id`, `CreatedAtUtc`, `Description`, `Images`, `IsActive`, `IsDeleted`, `Items`, `Name`, `Price`, `UpdatedAtUtc`)
+    VALUES ('ba000001-0000-0000-0000-000000000001', TIMESTAMP '2026-05-28 00:00:00', 'Handcrafted festival hamper with premium mangoes, bananas, and pomegranates.', '["/images/categories/fruit-baskets.jpg","/images/products/mangoes.jpeg","/images/categories/p-pomegranate.jpg"]', TRUE, FALSE, 'Mango × 4, Banana × 6, Pomegranate × 2', 'Pongal Festival Basket', 1450.0, NULL),
+    ('ba000002-0000-0000-0000-000000000002', TIMESTAMP '2026-05-28 00:00:00', 'Imported tropical selection — rambutan, dragon fruit, and mangosteen.', '["/images/products/wa2-rambutan.jpeg","/images/products/wa2-dragon-fruit.jpeg","/images/products/wa2-mangosteen.jpeg","/images/categories/p-pomegranate.jpg"]', TRUE, FALSE, 'Rambutan × 6, Dragon Fruit × 2, Mangosteen × 3', 'Exotic Mix Combo', 850.0, NULL);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260615121224_AddFarmersAndBaskets') THEN
+
+    INSERT INTO `Farmers` (`Id`, `CreatedAtUtc`, `IsActive`, `IsDeleted`, `Name`, `Phone`, `Produce`, `Rating`, `UpdatedAtUtc`, `Village`, `WeeklySupplyKg`)
+    VALUES ('fa000001-0000-0000-0000-000000000001', TIMESTAMP '2026-05-28 00:00:00', TRUE, FALSE, 'Murugesan P.', '+91 94433 00001', 'Mango, Banana', 4.9000000000000004, NULL, 'Tenkasi', 800),
+    ('fa000002-0000-0000-0000-000000000002', TIMESTAMP '2026-05-28 00:00:00', TRUE, FALSE, 'Rajan T.', '+91 94433 00002', 'Guava, Papaya', 4.7000000000000002, NULL, 'Courtallam', 450),
+    ('fa000003-0000-0000-0000-000000000003', TIMESTAMP '2026-05-28 00:00:00', TRUE, FALSE, 'Selvam K.', '+91 94433 00003', 'Banana, Jackfruit', 4.7999999999999998, NULL, 'Alangulam', 600),
+    ('fa000004-0000-0000-0000-000000000004', TIMESTAMP '2026-05-28 00:00:00', FALSE, FALSE, 'Lakshmi A.', '+91 94433 00004', 'Pomegranate, Grapes', 4.5999999999999996, NULL, 'Kadayanallur', 300),
+    ('fa000005-0000-0000-0000-000000000005', TIMESTAMP '2026-05-28 00:00:00', TRUE, FALSE, 'Kumar M.', '+91 94433 00005', 'Watermelon, Pineapple', 4.5, NULL, 'Sankarankovil', 500),
+    ('fa000006-0000-0000-0000-000000000006', TIMESTAMP '2026-05-28 00:00:00', TRUE, FALSE, 'Pandian S.', '+91 94433 00006', 'Dry Fruits, Seasonal', 4.7000000000000002, NULL, 'Tirunelveli', 250);
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
+DROP PROCEDURE IF EXISTS MigrationsScript;
+DELIMITER //
+CREATE PROCEDURE MigrationsScript()
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM `__EFMigrationsHistory` WHERE `MigrationId` = '20260615121224_AddFarmersAndBaskets') THEN
+
+    INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+    VALUES ('20260615121224_AddFarmersAndBaskets', '9.0.5');
+
+    END IF;
+END //
+DELIMITER ;
+CALL MigrationsScript();
+DROP PROCEDURE MigrationsScript;
+
 COMMIT;
 

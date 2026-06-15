@@ -92,3 +92,42 @@ public sealed class CouponUpsertRequestValidator : AbstractValidator<CouponUpser
         RuleFor(x => x.EndsAtUtc).GreaterThan(x => x.StartsAtUtc).WithMessage("End date must be after start date.");
     }
 }
+
+public sealed class FarmerUpsertRequestValidator : AbstractValidator<FarmerUpsertRequest>
+{
+    public FarmerUpsertRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Village).MaximumLength(160);
+        RuleFor(x => x.Produce).MaximumLength(300);
+        RuleFor(x => x.Phone).MaximumLength(40);
+        RuleFor(x => x.WeeklySupplyKg).GreaterThanOrEqualTo(0).When(x => x.WeeklySupplyKg.HasValue);
+        RuleFor(x => x.Rating).InclusiveBetween(0, 5).When(x => x.Rating.HasValue);
+    }
+}
+
+public sealed class BasketUpsertRequestValidator : AbstractValidator<BasketUpsertRequest>
+{
+    public BasketUpsertRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Description).NotEmpty().MaximumLength(1000);
+        RuleFor(x => x.Price).GreaterThan(0);
+        RuleFor(x => x.Items).NotEmpty().MaximumLength(1000);
+    }
+}
+
+public sealed class ForgotPasswordRequestValidator : AbstractValidator<ForgotPasswordRequest>
+{
+    public ForgotPasswordRequestValidator() => RuleFor(x => x.Email).NotEmpty().EmailAddress();
+}
+
+public sealed class ResetPasswordRequestValidator : AbstractValidator<ResetPasswordRequest>
+{
+    public ResetPasswordRequestValidator()
+    {
+        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.Token).NotEmpty();
+        RuleFor(x => x.NewPassword).MinimumLength(8);
+    }
+}
