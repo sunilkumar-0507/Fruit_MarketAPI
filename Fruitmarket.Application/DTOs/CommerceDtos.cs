@@ -7,7 +7,7 @@ public sealed record CartItemDto(Guid Id, Guid ProductId, string ProductName, st
 public sealed record AddCartItemRequest(Guid ProductId, int Quantity);
 public sealed record UpdateCartItemRequest(int Quantity);
 public sealed record CreateOrderRequest(Guid? ShippingAddressId, string? CouponCode);
-public sealed record OrderDto(Guid Id, string OrderNumber, OrderStatus Status, decimal Subtotal, decimal Discount, decimal Total, string? TrackingNumber, DateTime CreatedAtUtc, IReadOnlyList<OrderItemDto> Items);
+public sealed record OrderDto(Guid Id, string OrderNumber, OrderStatus Status, decimal Subtotal, decimal Discount, decimal Total, string? TrackingNumber, DateTime CreatedAtUtc, string? CustomerName, string? CustomerEmail, string? CustomerPhone, AddressDto? ShippingAddress, IReadOnlyList<OrderItemDto> Items);
 public sealed record OrderItemDto(Guid ProductId, string ProductName, decimal UnitPrice, int Quantity);
 public sealed record UpdateOrderStatusRequest(OrderStatus Status);
 public sealed record ReviewDto(Guid Id, Guid ProductId, string UserName, int Rating, string? Comment, DateTime CreatedAtUtc);

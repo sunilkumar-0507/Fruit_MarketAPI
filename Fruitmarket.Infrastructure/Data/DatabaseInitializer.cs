@@ -19,7 +19,25 @@ public static class DatabaseInitializer
 
         try
         {
-            await context.Database.MigrateAsync();
+            // The DB (esp. a fresh MySQL container) may not accept connections the instant the
+            // API boots, so retry the migration a few times before giving up. Applying migrations
+            // here is what creates every table (Users, Products, Orders, Baskets, Farmers, …) — if
+            // this fails, those tables won't exist and every data endpoint returns 500.
+            const int maxAttempts = 12;
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    await context.Database.MigrateAsync();
+                    logger.LogInformation("Database migrations applied successfully.");
+                    break;
+                }
+                catch (Exception ex) when (attempt < maxAttempts)
+                {
+                    logger.LogWarning("Database not ready (attempt {Attempt}/{Max}): {Message}. Retrying in 5s…", attempt, maxAttempts, ex.Message);
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+                }
+            }
 
             var adminRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Admin");
             if (adminRole is null) return;
@@ -49,7 +67,8 @@ public static class DatabaseInitializer
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Database initialization failed — API will start without a database connection");
+            logger.LogError(ex, "Database initialization FAILED after retries. The API will start, but endpoints that need the database will return 500. " +
+                "Check the connection string (ConnectionStrings:DefaultConnection) and that the DB user has permission to create tables.");
         }
     }
 }

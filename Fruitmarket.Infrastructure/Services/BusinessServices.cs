@@ -256,17 +256,17 @@ public sealed class OrderService(IUnitOfWork uow, ICurrentUserService currentUse
     }
     public async Task<IReadOnlyList<OrderDto>> GetHistoryAsync(CancellationToken ct)
     {
-        var orders = await uow.Orders.Query().Include(x => x.Items).Where(x => x.UserId == currentUser.UserId).OrderByDescending(x => x.CreatedAtUtc).ToListAsync(ct);
+        var orders = await uow.Orders.Query().Include(x => x.Items).Include(x => x.User).Include(x => x.ShippingAddress).Where(x => x.UserId == currentUser.UserId).OrderByDescending(x => x.CreatedAtUtc).ToListAsync(ct);
         return orders.Select(ToDto).ToList();
     }
-    public async Task<OrderDto> GetByIdAsync(Guid id, CancellationToken ct) => ToDto(await uow.Orders.Query().Include(x => x.Items).FirstOrDefaultAsync(x => x.Id == id && x.UserId == currentUser.UserId, ct) ?? throw new ApiException("Order not found", 404));
-    public async Task<OrderDto> CancelAsync(Guid id, CancellationToken ct) { var order = await uow.Orders.Query().Include(x => x.Items).FirstOrDefaultAsync(x => x.Id == id && x.UserId == currentUser.UserId, ct) ?? throw new ApiException("Order not found", 404); if (order.Status is OrderStatus.Shipped or OrderStatus.Delivered) throw new ApiException("Order cannot be cancelled", 409); order.Status = OrderStatus.Cancelled; await uow.SaveChangesAsync(ct); return ToDto(order); }
+    public async Task<OrderDto> GetByIdAsync(Guid id, CancellationToken ct) => ToDto(await uow.Orders.Query().Include(x => x.Items).Include(x => x.User).Include(x => x.ShippingAddress).FirstOrDefaultAsync(x => x.Id == id && x.UserId == currentUser.UserId, ct) ?? throw new ApiException("Order not found", 404));
+    public async Task<OrderDto> CancelAsync(Guid id, CancellationToken ct) { var order = await uow.Orders.Query().Include(x => x.Items).Include(x => x.User).Include(x => x.ShippingAddress).FirstOrDefaultAsync(x => x.Id == id && x.UserId == currentUser.UserId, ct) ?? throw new ApiException("Order not found", 404); if (order.Status is OrderStatus.Shipped or OrderStatus.Delivered) throw new ApiException("Order cannot be cancelled", 409); order.Status = OrderStatus.Cancelled; await uow.SaveChangesAsync(ct); return ToDto(order); }
 
     public async Task<PagedResult<OrderDto>> GetAllAsync(int pageNumber, int pageSize, CancellationToken ct)
     {
         var page = Math.Max(1, pageNumber);
         var size = Math.Clamp(pageSize, 1, 100);
-        var query = uow.Orders.Query().Include(x => x.Items).OrderByDescending(x => x.CreatedAtUtc);
+        var query = uow.Orders.Query().Include(x => x.Items).Include(x => x.User).Include(x => x.ShippingAddress).OrderByDescending(x => x.CreatedAtUtc);
         var total = await query.CountAsync(ct);
         var entities = await query.Skip((page - 1) * size).Take(size).ToListAsync(ct);
         return new PagedResult<OrderDto>(entities.Select(ToDto).ToList(), page, size, total);
@@ -274,13 +274,17 @@ public sealed class OrderService(IUnitOfWork uow, ICurrentUserService currentUse
 
     public async Task<OrderDto> UpdateStatusAsync(Guid id, OrderStatus status, CancellationToken ct)
     {
-        var order = await uow.Orders.Query().Include(x => x.Items).FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ApiException("Order not found", 404);
+        var order = await uow.Orders.Query().Include(x => x.Items).Include(x => x.User).Include(x => x.ShippingAddress).FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ApiException("Order not found", 404);
         order.Status = status;
         await uow.SaveChangesAsync(ct);
         return ToDto(order);
     }
 
-    private static OrderDto ToDto(Order o) => new(o.Id, o.OrderNumber, o.Status, o.Subtotal, o.Discount, o.Total, o.TrackingNumber, o.CreatedAtUtc, o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToArray());
+    private static OrderDto ToDto(Order o) => new(
+        o.Id, o.OrderNumber, o.Status, o.Subtotal, o.Discount, o.Total, o.TrackingNumber, o.CreatedAtUtc,
+        o.User?.FullName, o.User?.Email, o.User?.PhoneNumber,
+        o.ShippingAddress is null ? null : new AddressDto(o.ShippingAddress.Id, o.ShippingAddress.Line1, o.ShippingAddress.Line2, o.ShippingAddress.City, o.ShippingAddress.State, o.ShippingAddress.PostalCode, o.ShippingAddress.Country, o.ShippingAddress.IsDefault),
+        o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToArray());
 }
 
 public sealed class ReviewService(IUnitOfWork uow, ICurrentUserService currentUser) : IReviewService
