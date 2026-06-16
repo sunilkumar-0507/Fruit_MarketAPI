@@ -113,8 +113,13 @@ public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTok
     public async Task<AuthResponse> OtpLoginAsync(OtpLoginRequest request, CancellationToken ct)
     {
         var user = await uow.Users.Query().Include(x => x.Roles).FirstOrDefaultAsync(x => x.PhoneNumber == request.PhoneNumber, ct) ?? throw new ApiException("Invalid OTP", 401);
-        if (user.OtpCodeHash is not null && !hasher.Verify(request.OtpCode, user.OtpCodeHash)) throw new ApiException("Invalid OTP", 401);
-        if (user.OtpExpiresAtUtc is not null && user.OtpExpiresAtUtc < DateTime.UtcNow) throw new ApiException("OTP expired", 401);
+        // Fail closed: a user with no issued/active OTP must NOT be able to log in. The previous
+        // null-guards short-circuited, letting anyone authenticate by phone number alone.
+        if (string.IsNullOrEmpty(user.OtpCodeHash) || user.OtpExpiresAtUtc is null || user.OtpExpiresAtUtc < DateTime.UtcNow || !hasher.Verify(request.OtpCode, user.OtpCodeHash))
+            throw new ApiException("Invalid OTP", 401);
+        // Single-use: consume the OTP so it cannot be replayed.
+        user.OtpCodeHash = null;
+        user.OtpExpiresAtUtc = null;
         return await CreateAndStoreTokens(user, ct);
     }
 
@@ -161,6 +166,7 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
 
     public async Task<ProductDto> CreateAsync(ProductUpsertRequest request, CancellationToken ct)
     {
+        await EnsureCategoryExistsAsync(request.CategoryId, ct);
         var product = new Product { NameEn = request.NameEn, NameTa = request.NameTa, DescriptionEn = request.DescriptionEn, DescriptionTa = request.DescriptionTa, AboutEn = request.AboutEn, AboutTa = request.AboutTa, UsageEn = request.UsageEn, UsageTa = request.UsageTa, BenefitsEn = request.BenefitsEn, BenefitsTa = request.BenefitsTa, Price = request.Price, StockQuantity = request.StockQuantity, CategoryId = request.CategoryId, Slug = await GenerateUniqueSlugAsync(request.NameEn, null, ct) };
         foreach (var image in request.Images ?? []) product.Images.Add(new ProductImage { Url = image.Url, AltText = image.AltText, IsPrimary = image.IsPrimary });
         await uow.Products.AddAsync(product, ct);
@@ -171,11 +177,18 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
     public async Task<ProductDto> UpdateAsync(Guid id, ProductUpsertRequest request, CancellationToken ct)
     {
         var product = await uow.Products.Query().Include(x => x.Images).FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ApiException("Product not found", 404);
+        await EnsureCategoryExistsAsync(request.CategoryId, ct);
         var nameChanged = !string.Equals(product.NameEn, request.NameEn, StringComparison.Ordinal);
         product.NameEn = request.NameEn; product.NameTa = request.NameTa; product.DescriptionEn = request.DescriptionEn; product.DescriptionTa = request.DescriptionTa; product.AboutEn = request.AboutEn; product.AboutTa = request.AboutTa; product.UsageEn = request.UsageEn; product.UsageTa = request.UsageTa; product.BenefitsEn = request.BenefitsEn; product.BenefitsTa = request.BenefitsTa; product.Price = request.Price; product.StockQuantity = request.StockQuantity; product.CategoryId = request.CategoryId;
         if (nameChanged) product.Slug = await GenerateUniqueSlugAsync(request.NameEn, product.Id, ct);
+        // Replace images via explicit Remove/Add so EF tracks them correctly. Clearing the navigation
+        // collection and adding `new ProductImage { ... }` makes EF infer state from the client-set Guid
+        // key (BaseEntity sets Id = Guid.NewGuid()), which it mistakes for an existing row and emits an
+        // UPDATE for a non-existent row → "0 rows affected" DbUpdateConcurrencyException → HTTP 500.
+        foreach (var existing in product.Images.ToList()) uow.ProductImages.Remove(existing);
         product.Images.Clear();
-        foreach (var image in request.Images ?? []) product.Images.Add(new ProductImage { Url = image.Url, AltText = image.AltText, IsPrimary = image.IsPrimary });
+        foreach (var image in request.Images ?? [])
+            await uow.ProductImages.AddAsync(new ProductImage { ProductId = product.Id, Url = image.Url, AltText = image.AltText, IsPrimary = image.IsPrimary }, ct);
         await uow.SaveChangesAsync(ct);
         return await GetBySlugAsync(product.Slug, ct);
     }
@@ -185,6 +198,13 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
         var product = await uow.Products.GetByIdAsync(id, ct) ?? throw new ApiException("Product not found", 404);
         product.IsDeleted = true;
         await uow.SaveChangesAsync(ct);
+    }
+
+    // Guard against an FK violation (→ 500) when the client sends a CategoryId that doesn't exist.
+    private async Task EnsureCategoryExistsAsync(Guid categoryId, CancellationToken ct)
+    {
+        if (!await uow.Categories.Query().AnyAsync(x => x.Id == categoryId, ct))
+            throw new ApiException("Category not found", 400);
     }
 
     private async Task<string> GenerateUniqueSlugAsync(string name, Guid? excludeId, CancellationToken ct)
@@ -204,7 +224,7 @@ public sealed class CategoryService(IUnitOfWork uow, IMapper mapper, ISlugServic
     public async Task<CategoryDto> GetByIdAsync(Guid id, CancellationToken ct) => mapper.Map<CategoryDto>(await uow.Categories.GetByIdAsync(id, ct) ?? throw new ApiException("Category not found", 404));
     public async Task<CategoryDto> CreateAsync(CategoryUpsertRequest request, CancellationToken ct) { var c = new Category { NameEn = request.NameEn, NameTa = request.NameTa, DescriptionEn = request.DescriptionEn, DescriptionTa = request.DescriptionTa, Slug = await GenerateUniqueSlugAsync(request.NameEn, null, ct) }; await uow.Categories.AddAsync(c, ct); await uow.SaveChangesAsync(ct); return mapper.Map<CategoryDto>(c); }
     public async Task<CategoryDto> UpdateAsync(Guid id, CategoryUpsertRequest request, CancellationToken ct) { var c = await uow.Categories.GetByIdAsync(id, ct) ?? throw new ApiException("Category not found", 404); var nameChanged = !string.Equals(c.NameEn, request.NameEn, StringComparison.Ordinal); c.NameEn = request.NameEn; c.NameTa = request.NameTa; c.DescriptionEn = request.DescriptionEn; c.DescriptionTa = request.DescriptionTa; if (nameChanged) c.Slug = await GenerateUniqueSlugAsync(request.NameEn, c.Id, ct); await uow.SaveChangesAsync(ct); return mapper.Map<CategoryDto>(c); }
-    public async Task DeleteAsync(Guid id, CancellationToken ct) { var c = await uow.Categories.GetByIdAsync(id, ct) ?? throw new ApiException("Category not found", 404); uow.Categories.Remove(c); await uow.SaveChangesAsync(ct); }
+    public async Task DeleteAsync(Guid id, CancellationToken ct) { var c = await uow.Categories.GetByIdAsync(id, ct) ?? throw new ApiException("Category not found", 404); if (await uow.Products.Query().IgnoreQueryFilters().AnyAsync(x => x.CategoryId == id, ct)) throw new ApiException("Category has products and cannot be deleted", 409); uow.Categories.Remove(c); await uow.SaveChangesAsync(ct); }
 
     private async Task<string> GenerateUniqueSlugAsync(string name, Guid? excludeId, CancellationToken ct)
     {

@@ -9,6 +9,7 @@ public sealed class UnitOfWork(ApplicationDbContext context) : IUnitOfWork
     public IRepository<User> Users { get; } = new Repository<User>(context);
     public IRepository<Role> Roles { get; } = new Repository<Role>(context);
     public IRepository<Product> Products { get; } = new Repository<Product>(context);
+    public IRepository<ProductImage> ProductImages { get; } = new Repository<ProductImage>(context);
     public IRepository<Category> Categories { get; } = new Repository<Category>(context);
     public IRepository<Cart> Carts { get; } = new Repository<Cart>(context);
     public IRepository<CartItem> CartItems { get; } = new Repository<CartItem>(context);

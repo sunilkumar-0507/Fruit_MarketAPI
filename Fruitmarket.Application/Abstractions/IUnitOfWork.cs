@@ -7,6 +7,7 @@ public interface IUnitOfWork
     IRepository<User> Users { get; }
     IRepository<Role> Roles { get; }
     IRepository<Product> Products { get; }
+    IRepository<ProductImage> ProductImages { get; }
     IRepository<Category> Categories { get; }
     IRepository<Cart> Carts { get; }
     IRepository<CartItem> CartItems { get; }
