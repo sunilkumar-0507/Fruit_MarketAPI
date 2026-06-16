@@ -30,6 +30,16 @@ public sealed class ProductsController(IProductService products, IReviewService 
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<ProductDto>> Update(Guid id, ProductUpsertRequest request, CancellationToken ct) => Ok(await products.UpdateAsync(id, request, ct));
 
+    /// <summary>Updates a product via POST (alternative to PUT for clients/proxies that can't send PUT). Same body as PUT.</summary>
+    [Authorize(Roles = "Admin")]
+    [HttpPost("{id:guid}/update")]
+    public async Task<ActionResult<ProductDto>> UpdateViaPost(Guid id, ProductUpsertRequest request, CancellationToken ct) => Ok(await products.UpdateAsync(id, request, ct));
+
+    /// <summary>Applies a percentage discount to a product (0 removes any discount).</summary>
+    [Authorize(Roles = "Admin")]
+    [HttpPost("{id:guid}/discount")]
+    public async Task<ActionResult<ProductDto>> ApplyDiscount(Guid id, ProductDiscountRequest request, CancellationToken ct) => Ok(await products.ApplyDiscountAsync(id, request.Percentage, ct));
+
     [Authorize(Roles = "Admin")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)

@@ -24,6 +24,7 @@ public interface IProductService
     Task<ProductDto> GetBySlugAsync(string slug, CancellationToken ct);
     Task<ProductDto> CreateAsync(ProductUpsertRequest request, CancellationToken ct);
     Task<ProductDto> UpdateAsync(Guid id, ProductUpsertRequest request, CancellationToken ct);
+    Task<ProductDto> ApplyDiscountAsync(Guid id, decimal percentage, CancellationToken ct);
     Task DeleteAsync(Guid id, CancellationToken ct);
 }
 

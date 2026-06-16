@@ -43,6 +43,16 @@ public sealed class AdminController(
     public async Task<ActionResult<ProductDto>> UpdateProduct(Guid id, ProductUpsertRequest request, CancellationToken ct)
         => Ok(await products.UpdateAsync(id, request, ct));
 
+    /// <summary>Updates a product via POST (alternative to PUT for clients/proxies that can't send PUT). Same body as PUT.</summary>
+    [HttpPost("products/{id:guid}/update")]
+    public async Task<ActionResult<ProductDto>> UpdateProductViaPost(Guid id, ProductUpsertRequest request, CancellationToken ct)
+        => Ok(await products.UpdateAsync(id, request, ct));
+
+    /// <summary>Applies a percentage discount to a product (0 removes any discount).</summary>
+    [HttpPost("products/{id:guid}/discount")]
+    public async Task<ActionResult<ProductDto>> DiscountProduct(Guid id, ProductDiscountRequest request, CancellationToken ct)
+        => Ok(await products.ApplyDiscountAsync(id, request.Percentage, ct));
+
     /// <summary>Soft-deletes a product.</summary>
     [HttpDelete("products/{id:guid}")]
     public async Task<IActionResult> DeleteProduct(Guid id, CancellationToken ct)

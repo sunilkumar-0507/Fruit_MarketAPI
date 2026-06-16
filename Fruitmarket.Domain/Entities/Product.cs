@@ -16,6 +16,9 @@ public sealed class Product : BaseEntity
     public string? BenefitsEn { get; set; }
     public string? BenefitsTa { get; set; }
     public decimal Price { get; set; }
+    // Pre-discount price. Null = no discount (sells at Price). Set by the discount endpoint;
+    // when set, it holds the original price and Price holds the discounted price.
+    public decimal? OriginalPrice { get; set; }
     public int StockQuantity { get; set; }
     public bool IsActive { get; set; } = true;
     public Guid CategoryId { get; set; }

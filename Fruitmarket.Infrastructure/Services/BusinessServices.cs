@@ -193,6 +193,29 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
         return await GetBySlugAsync(product.Slug, ct);
     }
 
+    // Apply a percentage discount. The discount is always computed from the pre-discount base
+    // (OriginalPrice if a discount is already active, otherwise the current Price), so re-applying
+    // does not compound. A percentage of 0 clears the discount and restores the base price.
+    public async Task<ProductDto> ApplyDiscountAsync(Guid id, decimal percentage, CancellationToken ct)
+    {
+        var product = await uow.Products.GetByIdAsync(id, ct) ?? throw new ApiException("Product not found", 404);
+        var basePrice = product.OriginalPrice ?? product.Price;
+        if (percentage <= 0)
+        {
+            product.Price = basePrice;
+            product.OriginalPrice = null;
+        }
+        else
+        {
+            var discounted = Math.Round(basePrice * (1 - percentage / 100m), 2, MidpointRounding.AwayFromZero);
+            if (discounted <= 0) throw new ApiException("Discount too high: the resulting price must be greater than 0", 400);
+            product.OriginalPrice = basePrice;
+            product.Price = discounted;
+        }
+        await uow.SaveChangesAsync(ct);
+        return await GetBySlugAsync(product.Slug, ct);
+    }
+
     public async Task DeleteAsync(Guid id, CancellationToken ct)
     {
         var product = await uow.Products.GetByIdAsync(id, ct) ?? throw new ApiException("Product not found", 404);

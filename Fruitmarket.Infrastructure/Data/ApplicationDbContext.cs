@@ -50,6 +50,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         {
             e.HasIndex(x => x.Slug).IsUnique();
             e.Property(x => x.Price).HasColumnType("decimal(18,2)");
+            e.Property(x => x.OriginalPrice).HasColumnType("decimal(18,2)");
             e.Property(x => x.NameEn).HasMaxLength(200);
             e.Property(x => x.NameTa).HasMaxLength(200);
             e.HasQueryFilter(x => !x.IsDeleted);

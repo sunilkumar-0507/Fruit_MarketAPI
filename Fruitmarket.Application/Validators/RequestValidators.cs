@@ -34,6 +34,14 @@ public sealed class ProductUpsertRequestValidator : AbstractValidator<ProductUps
     }
 }
 
+public sealed class ProductDiscountRequestValidator : AbstractValidator<ProductDiscountRequest>
+{
+    public ProductDiscountRequestValidator()
+    {
+        RuleFor(x => x.Percentage).InclusiveBetween(0, 99);
+    }
+}
+
 public sealed class CategoryUpsertRequestValidator : AbstractValidator<CategoryUpsertRequest>
 {
     public CategoryUpsertRequestValidator()
