@@ -36,6 +36,8 @@ packages/
 *.env
 appsettings.*.local.json
 secrets.json
+run.sh
+*-publish.zip
 
 ## OS
 .DS_Store

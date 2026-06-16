@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Production launcher for the Fruitmarket API on the VPS.
+#
+# Secrets are injected as environment variables here instead of being committed to
+# appsettings.json. Env vars override appsettings.json, so this also survives every
+# WinSCP re-upload of the published folder.
+#
+# Setup (once, on the VPS):
+#   1. Copy this file next to the published Fruitmarket.API.dll and name it run.sh
+#        cp run.sh.example run.sh
+#   2. Fill in the real values below (replace every __PLACEHOLDER__).
+#   3. chmod +x run.sh
+#   4. Start the API with:  ./run.sh
+#
+# run.sh is gitignored — NEVER commit the filled-in version.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+export ASPNETCORE_ENVIRONMENT=Production
+
+# MySQL runs locally on the VPS — connect over loopback.
+export ConnectionStrings__DefaultConnection="Server=127.0.0.1;Port=3306;Database=FruitmarketDb;User=apiuser;Password=__DB_PASSWORD__;"
+
+# JWT signing key. Must be long & random (>= 32 bytes). Generate with: openssl rand -base64 48
+export Jwt__Secret="__JWT_SECRET__"
+
+# Seed admin — only used on first boot when no Admin user exists yet.
+export SeedAdmin__Email="__ADMIN_EMAIL__"
+export SeedAdmin__Password="__ADMIN_PASSWORD__"
+
+# Hostinger SMTP mailbox password (for password-reset email).
+export Email__Password="__SMTP_PASSWORD__"
+
+exec dotnet ./Fruitmarket.API.dll

@@ -17,7 +17,8 @@ public static class DependencyInjection
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
         var connectionString = configuration.GetConnectionString("DefaultConnection")!;
         services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 0))));
+            options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 0)),
+                mySql => mySql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(5), errorNumbersToAdd: null)));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
