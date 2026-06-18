@@ -11,8 +11,9 @@ public sealed class MappingProfile : Profile
         CreateMap<Category, CategoryDto>();
         CreateMap<ProductImage, ProductImageDto>();
         CreateMap<Product, ProductDto>()
-            .ForCtorParam("IsOutOfStock", o => o.MapFrom(p => p.StockQuantity <= 0))
-            .ForCtorParam("Rating", o => o.MapFrom(p => p.Reviews.Any() ? p.Reviews.Average(r => r.Rating) : 0));
+            // Explicit admin flag OR depleted stock both surface as out-of-stock to the storefront.
+            .ForCtorParam("IsOutOfStock", o => o.MapFrom(p => p.IsOutOfStock || p.StockQuantity <= 0))
+            .ForCtorParam("Rating", o => o.MapFrom(p => p.Rating));
         CreateMap<Address, AddressDto>();
         CreateMap<Farmer, FarmerDto>();
         CreateMap<Basket, BasketDto>();

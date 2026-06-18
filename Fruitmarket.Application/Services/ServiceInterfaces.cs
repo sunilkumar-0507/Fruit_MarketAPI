@@ -56,6 +56,16 @@ public interface IOrderService
     Task<OrderDto> UpdateStatusAsync(Guid id, OrderStatus status, CancellationToken ct);
 }
 
+public interface IPaymentService
+{
+    /// <summary>Creates a Cashfree order for an existing local order and returns the JS-SDK payment session.</summary>
+    Task<PaymentSessionDto> CreateSessionAsync(Guid orderId, CreatePaymentSessionRequest request, CancellationToken ct);
+    /// <summary>Queries Cashfree for the order result and persists payment status + transaction id. Returns the updated order.</summary>
+    Task<OrderDto> VerifyAsync(Guid orderId, CancellationToken ct);
+    /// <summary>Processes a Cashfree webhook (server-to-server confirmation). Signature is verified before any DB write.</summary>
+    Task ProcessWebhookAsync(string rawBody, string signature, string timestamp, CancellationToken ct);
+}
+
 public interface IReviewService
 {
     Task<ReviewDto> AddAsync(string productSlug, ReviewRequest request, CancellationToken ct);

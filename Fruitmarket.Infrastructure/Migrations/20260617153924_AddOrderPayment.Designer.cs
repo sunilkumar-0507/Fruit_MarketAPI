@@ -4,6 +4,7 @@ using Fruitmarket.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Fruitmarket.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260617153924_AddOrderPayment")]
+    partial class AddOrderPayment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -603,9 +606,6 @@ namespace Fruitmarket.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<bool>("IsOutOfStock")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<string>("NameEn")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -621,9 +621,6 @@ namespace Fruitmarket.Infrastructure.Migrations
 
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<double>("Rating")
-                        .HasColumnType("double");
 
                     b.Property<string>("Slug")
                         .IsRequired()
@@ -660,11 +657,9 @@ namespace Fruitmarket.Infrastructure.Migrations
                             DescriptionTa = "இனிப்பு தரமான மாம்பழங்கள்",
                             IsActive = true,
                             IsDeleted = false,
-                            IsOutOfStock = false,
                             NameEn = "Alphonso Mango",
                             NameTa = "அல்போன்சோ மாம்பழம்",
                             Price = 180m,
-                            Rating = 0.0,
                             Slug = "alphonso-mango",
                             StockQuantity = 100
                         },
@@ -677,11 +672,9 @@ namespace Fruitmarket.Infrastructure.Migrations
                             DescriptionTa = "புதிய வாழைப்பழங்கள்",
                             IsActive = true,
                             IsDeleted = false,
-                            IsOutOfStock = false,
                             NameEn = "Nendran Banana",
                             NameTa = "நேந்திரன் வாழைப்பழம்",
                             Price = 70m,
-                            Rating = 0.0,
                             Slug = "nendran-banana",
                             StockQuantity = 250
                         });

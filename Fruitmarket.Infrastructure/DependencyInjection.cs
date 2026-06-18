@@ -15,6 +15,7 @@ public static class DependencyInjection
     {
         services.Configure<JwtOptions>(configuration.GetSection("Jwt"));
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
+        services.Configure<CashfreeOptions>(configuration.GetSection("Cashfree"));
         var connectionString = configuration.GetConnectionString("DefaultConnection")!;
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 0)),
@@ -34,6 +35,8 @@ public static class DependencyInjection
         services.AddScoped<IFarmerService, FarmerService>();
         services.AddScoped<IBasketService, BasketService>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddScoped<IPaymentService, PaymentService>();
+        services.AddHttpClient<IPaymentGateway, CashfreeGateway>();
         return services;
     }
 }

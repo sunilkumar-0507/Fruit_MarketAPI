@@ -167,7 +167,7 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
     public async Task<ProductDto> CreateAsync(ProductUpsertRequest request, CancellationToken ct)
     {
         await EnsureCategoryExistsAsync(request.CategoryId, ct);
-        var product = new Product { NameEn = request.NameEn, NameTa = request.NameTa, DescriptionEn = request.DescriptionEn, DescriptionTa = request.DescriptionTa, AboutEn = request.AboutEn, AboutTa = request.AboutTa, UsageEn = request.UsageEn, UsageTa = request.UsageTa, BenefitsEn = request.BenefitsEn, BenefitsTa = request.BenefitsTa, Price = request.Price, StockQuantity = request.StockQuantity, CategoryId = request.CategoryId, Slug = await GenerateUniqueSlugAsync(request.NameEn, null, ct) };
+        var product = new Product { NameEn = request.NameEn, NameTa = request.NameTa, DescriptionEn = request.DescriptionEn, DescriptionTa = request.DescriptionTa, AboutEn = request.AboutEn, AboutTa = request.AboutTa, UsageEn = request.UsageEn, UsageTa = request.UsageTa, BenefitsEn = request.BenefitsEn, BenefitsTa = request.BenefitsTa, Price = request.Price, StockQuantity = request.StockQuantity, IsOutOfStock = request.IsOutOfStock, CategoryId = request.CategoryId, Slug = await GenerateUniqueSlugAsync(request.NameEn, null, ct) };
         foreach (var image in request.Images ?? []) product.Images.Add(new ProductImage { Url = image.Url, AltText = image.AltText, IsPrimary = image.IsPrimary });
         await uow.Products.AddAsync(product, ct);
         await uow.SaveChangesAsync(ct);
@@ -179,7 +179,7 @@ public sealed class ProductService(IUnitOfWork uow, IMapper mapper, ISlugService
         var product = await uow.Products.Query().Include(x => x.Images).FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new ApiException("Product not found", 404);
         await EnsureCategoryExistsAsync(request.CategoryId, ct);
         var nameChanged = !string.Equals(product.NameEn, request.NameEn, StringComparison.Ordinal);
-        product.NameEn = request.NameEn; product.NameTa = request.NameTa; product.DescriptionEn = request.DescriptionEn; product.DescriptionTa = request.DescriptionTa; product.AboutEn = request.AboutEn; product.AboutTa = request.AboutTa; product.UsageEn = request.UsageEn; product.UsageTa = request.UsageTa; product.BenefitsEn = request.BenefitsEn; product.BenefitsTa = request.BenefitsTa; product.Price = request.Price; product.StockQuantity = request.StockQuantity; product.CategoryId = request.CategoryId;
+        product.NameEn = request.NameEn; product.NameTa = request.NameTa; product.DescriptionEn = request.DescriptionEn; product.DescriptionTa = request.DescriptionTa; product.AboutEn = request.AboutEn; product.AboutTa = request.AboutTa; product.UsageEn = request.UsageEn; product.UsageTa = request.UsageTa; product.BenefitsEn = request.BenefitsEn; product.BenefitsTa = request.BenefitsTa; product.Price = request.Price; product.StockQuantity = request.StockQuantity; product.IsOutOfStock = request.IsOutOfStock; product.CategoryId = request.CategoryId;
         if (nameChanged) product.Slug = await GenerateUniqueSlugAsync(request.NameEn, product.Id, ct);
         // Replace images via explicit Remove/Add so EF tracks them correctly. Clearing the navigation
         // collection and adding `new ProductImage { ... }` makes EF infer state from the client-set Guid
@@ -291,7 +291,8 @@ public sealed class OrderService(IUnitOfWork uow, ICurrentUserService currentUse
         var couponCode = request.CouponCode?.ToUpperInvariant();
         var coupon = string.IsNullOrWhiteSpace(couponCode) ? null : await uow.Coupons.FirstOrDefaultAsync(x => x.Code == couponCode && x.IsActive, ct);
         var discount = coupon is not null && subtotal >= (coupon.MinimumOrderAmount ?? 0) && coupon.StartsAtUtc <= DateTime.UtcNow && coupon.EndsAtUtc >= DateTime.UtcNow ? coupon.DiscountAmount : 0;
-        var order = new Order { UserId = currentUser.UserId, OrderNumber = $"FM-{DateTime.UtcNow:yyyyMMddHHmmss}", ShippingAddressId = request.ShippingAddressId, CouponId = coupon?.Id, Subtotal = subtotal, Discount = discount, Total = Math.Max(0, subtotal - discount) };
+        var paymentMethod = string.Equals(request.PaymentMethod, "online", StringComparison.OrdinalIgnoreCase) ? PaymentMethod.Online : PaymentMethod.Cod;
+        var order = new Order { UserId = currentUser.UserId, OrderNumber = $"FM-{DateTime.UtcNow:yyyyMMddHHmmss}", ShippingAddressId = request.ShippingAddressId, CouponId = coupon?.Id, Subtotal = subtotal, Discount = discount, Total = Math.Max(0, subtotal - discount), PaymentMethod = paymentMethod, PaymentStatus = PaymentStatus.Pending };
         foreach (var item in cart.Items) { if (item.Product is null) continue; if (item.Product.StockQuantity < item.Quantity) throw new ApiException($"{item.Product.NameEn} is out of stock", 409); item.Product.StockQuantity -= item.Quantity; order.Items.Add(new OrderItem { ProductId = item.ProductId, ProductName = item.Product.NameEn, UnitPrice = item.Product.Price, Quantity = item.Quantity }); uow.CartItems.Remove(item); }
         await uow.Orders.AddAsync(order, ct);
         await uow.SaveChangesAsync(ct);
@@ -327,7 +328,8 @@ public sealed class OrderService(IUnitOfWork uow, ICurrentUserService currentUse
         o.Id, o.OrderNumber, o.Status, o.Subtotal, o.Discount, o.Total, o.TrackingNumber, o.CreatedAtUtc,
         o.User?.FullName, o.User?.Email, o.User?.PhoneNumber,
         o.ShippingAddress is null ? null : new AddressDto(o.ShippingAddress.Id, o.ShippingAddress.Line1, o.ShippingAddress.Line2, o.ShippingAddress.City, o.ShippingAddress.State, o.ShippingAddress.PostalCode, o.ShippingAddress.Country, o.ShippingAddress.IsDefault),
-        o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToArray());
+        o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToArray(),
+        o.PaymentMethod.ToString().ToLowerInvariant(), o.PaymentStatus.ToString().ToLowerInvariant(), o.PaymentTransactionId);
 }
 
 public sealed class ReviewService(IUnitOfWork uow, ICurrentUserService currentUser) : IReviewService
@@ -340,11 +342,22 @@ public sealed class ReviewService(IUnitOfWork uow, ICurrentUserService currentUs
         var review = new Review { ProductId = product.Id, UserId = currentUser.UserId, Rating = request.Rating, Comment = request.Comment };
         await uow.Reviews.AddAsync(review, ct);
         await uow.SaveChangesAsync(ct);
+        await RecalculateRatingAsync(product.Id, ct);
         return new(review.Id, review.ProductId, user?.FullName ?? "", review.Rating, review.Comment, review.CreatedAtUtc);
     }
     public async Task<IReadOnlyList<ReviewDto>> GetByProductAsync(string productSlug, CancellationToken ct) => await uow.Reviews.Query().Include(x => x.User).Include(x => x.Product).Where(x => x.Product!.Slug == productSlug).OrderByDescending(x => x.CreatedAtUtc).Select(x => new ReviewDto(x.Id, x.ProductId, x.User!.FullName, x.Rating, x.Comment, x.CreatedAtUtc)).ToListAsync(ct);
-    public async Task<ReviewDto> UpdateAsync(Guid id, ReviewRequest request, CancellationToken ct) { var review = await uow.Reviews.GetByIdAsync(id, ct) ?? throw new ApiException("Review not found", 404); if (review.UserId != currentUser.UserId) throw new ApiException("Forbidden", 403); review.Rating = request.Rating; review.Comment = request.Comment; await uow.SaveChangesAsync(ct); var user = await uow.Users.GetByIdAsync(currentUser.UserId, ct); return new(review.Id, review.ProductId, user?.FullName ?? "", review.Rating, review.Comment, review.CreatedAtUtc); }
-    public async Task DeleteAsync(Guid id, CancellationToken ct) { var review = await uow.Reviews.GetByIdAsync(id, ct) ?? throw new ApiException("Review not found", 404); if (review.UserId != currentUser.UserId) throw new ApiException("Forbidden", 403); uow.Reviews.Remove(review); await uow.SaveChangesAsync(ct); }
+    public async Task<ReviewDto> UpdateAsync(Guid id, ReviewRequest request, CancellationToken ct) { var review = await uow.Reviews.GetByIdAsync(id, ct) ?? throw new ApiException("Review not found", 404); if (review.UserId != currentUser.UserId) throw new ApiException("Forbidden", 403); review.Rating = request.Rating; review.Comment = request.Comment; await uow.SaveChangesAsync(ct); await RecalculateRatingAsync(review.ProductId, ct); var user = await uow.Users.GetByIdAsync(currentUser.UserId, ct); return new(review.Id, review.ProductId, user?.FullName ?? "", review.Rating, review.Comment, review.CreatedAtUtc); }
+    public async Task DeleteAsync(Guid id, CancellationToken ct) { var review = await uow.Reviews.GetByIdAsync(id, ct) ?? throw new ApiException("Review not found", 404); if (review.UserId != currentUser.UserId) throw new ApiException("Forbidden", 403); var productId = review.ProductId; uow.Reviews.Remove(review); await uow.SaveChangesAsync(ct); await RecalculateRatingAsync(productId, ct); }
+
+    // Keep the denormalised Product.Rating in sync with the average of all its reviews (0 when none remain).
+    private async Task RecalculateRatingAsync(Guid productId, CancellationToken ct)
+    {
+        var product = await uow.Products.GetByIdAsync(productId, ct);
+        if (product is null) return;
+        var ratings = await uow.Reviews.Query().Where(x => x.ProductId == productId).Select(x => x.Rating).ToListAsync(ct);
+        product.Rating = ratings.Count > 0 ? ratings.Average() : 0;
+        await uow.SaveChangesAsync(ct);
+    }
 }
 
 public sealed class WishlistService(IUnitOfWork uow, ICurrentUserService currentUser, IMapper mapper) : IWishlistService

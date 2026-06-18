@@ -31,4 +31,12 @@ export SeedAdmin__Password="__ADMIN_PASSWORD__"
 # Hostinger SMTP mailbox password (for password-reset email).
 export Email__Password="__SMTP_PASSWORD__"
 
+# Cashfree online payments. Use "sandbox" while testing, "production" to go live.
+# App ID + Secret Key come from the Cashfree dashboard (Developers → API Keys).
+export Cashfree__Enabled=true
+export Cashfree__Environment="production"
+export Cashfree__AppId="__CASHFREE_APP_ID__"
+export Cashfree__SecretKey="__CASHFREE_SECRET_KEY__"
+export Cashfree__ReturnUrl="https://tenkasifresh.in/orders"
+
 exec dotnet ./Fruitmarket.API.dll

@@ -38,6 +38,7 @@ appsettings.*.local.json
 secrets.json
 run.sh
 *-publish.zip
+*-publish/
 
 ## OS
 .DS_Store

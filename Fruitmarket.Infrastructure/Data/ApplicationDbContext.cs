@@ -66,6 +66,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.Subtotal).HasColumnType("decimal(18,2)");
             e.Property(x => x.Discount).HasColumnType("decimal(18,2)");
             e.Property(x => x.Total).HasColumnType("decimal(18,2)");
+            e.Property(x => x.PaymentTransactionId).HasMaxLength(100);
+            e.Property(x => x.PaymentProviderOrderId).HasMaxLength(100);
         });
         modelBuilder.Entity<OrderItem>().Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<Coupon>(e =>
