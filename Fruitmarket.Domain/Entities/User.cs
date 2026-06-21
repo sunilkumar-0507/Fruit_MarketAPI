@@ -13,6 +13,9 @@ public sealed class User : BaseEntity
     public string? EmailVerificationToken { get; set; }
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpiresAtUtc { get; set; }
+    // OTP used by the phone-based password-reset flow (kept separate from the OTP-login fields below).
+    public string? PasswordResetOtpHash { get; set; }
+    public DateTime? PasswordResetOtpExpiresAtUtc { get; set; }
     public string? OtpCodeHash { get; set; }
     public DateTime? OtpExpiresAtUtc { get; set; }
     public ICollection<Role> Roles { get; set; } = [];

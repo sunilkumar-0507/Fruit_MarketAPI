@@ -36,18 +36,24 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     [HttpGet("profile")]
     public async Task<ActionResult<UserDto>> Profile(CancellationToken ct) => Ok(await authService.GetProfileAsync(ct));
 
+    /// <summary>Starts a phone-based password reset: sends a 6-digit OTP by SMS. Always returns 200.</summary>
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken ct)
     {
         await authService.ForgotPasswordAsync(request, ct);
-        return Accepted();
+        return Ok();
     }
 
+    /// <summary>Verifies the OTP and returns a short-lived reset token.</summary>
+    [HttpPost("verify-otp")]
+    public async Task<ActionResult<VerifyOtpResponse>> VerifyOtp(VerifyOtpRequest request, CancellationToken ct) => Ok(await authService.VerifyOtpAsync(request, ct));
+
+    /// <summary>Completes the reset using the token from verify-otp.</summary>
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken ct)
     {
         await authService.ResetPasswordAsync(request, ct);
-        return NoContent();
+        return Ok();
     }
 
     [HttpPost("verify-email")]

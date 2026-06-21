@@ -15,6 +15,7 @@ public static class DependencyInjection
     {
         services.Configure<JwtOptions>(configuration.GetSection("Jwt"));
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
+        services.Configure<SmsOptions>(configuration.GetSection("Sms"));
         services.Configure<CashfreeOptions>(configuration.GetSection("Cashfree"));
         var connectionString = configuration.GetConnectionString("DefaultConnection")!;
         services.AddDbContext<ApplicationDbContext>(options =>
@@ -35,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<IFarmerService, FarmerService>();
         services.AddScoped<IBasketService, BasketService>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddHttpClient<ISmsSender, SmsSender>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddHttpClient<IPaymentGateway, CashfreeGateway>();
         return services;

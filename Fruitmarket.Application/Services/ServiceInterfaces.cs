@@ -13,6 +13,7 @@ public interface IAuthService
     Task<UserDto> GetProfileAsync(CancellationToken ct);
     Task<PagedResult<UserDto>> GetUsersAsync(int pageNumber, int pageSize, CancellationToken ct);
     Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken ct);
+    Task<VerifyOtpResponse> VerifyOtpAsync(VerifyOtpRequest request, CancellationToken ct);
     Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct);
     Task VerifyEmailAsync(VerifyEmailRequest request, CancellationToken ct);
     Task<AuthResponse> OtpLoginAsync(OtpLoginRequest request, CancellationToken ct);

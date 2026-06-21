@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Fruitmarket.Application.Abstractions;
@@ -11,7 +12,7 @@ using Microsoft.Extensions.Options;
 
 namespace Fruitmarket.Infrastructure.Services;
 
-public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTokenService jwt, ICurrentUserService currentUser, IOptions<JwtOptions> jwtOptions, IEmailSender emailSender, IOptions<EmailOptions> emailOptions) : IAuthService
+public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTokenService jwt, ICurrentUserService currentUser, IOptions<JwtOptions> jwtOptions, ISmsSender smsSender) : IAuthService
 {
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct)
     {
@@ -74,38 +75,64 @@ public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTok
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken ct)
     {
-        var email = request.Email.ToLowerInvariant();
-        var user = await uow.Users.FirstOrDefaultAsync(x => x.Email == email, ct);
-        // Always return without revealing whether the email exists (prevents account enumeration).
+        var user = await uow.Users.FirstOrDefaultAsync(x => x.PhoneNumber == request.PhoneNumber, ct);
+        // Always succeed without revealing whether the number exists (prevents account enumeration).
         if (user is null) return;
 
-        user.PasswordResetToken = Guid.NewGuid().ToString("N");
-        // Reset links are valid for 24 hours (was 30 minutes, which expired too quickly).
-        user.PasswordResetTokenExpiresAtUtc = DateTime.UtcNow.AddHours(24);
+        var otp = GenerateOtp();
+        user.PasswordResetOtpHash = hasher.Hash(otp);
+        user.PasswordResetOtpExpiresAtUtc = DateTime.UtcNow.AddMinutes(10);
         await uow.SaveChangesAsync(ct);
 
-        var baseUrl = emailOptions.Value.FrontendUrl.TrimEnd('/');
-        var resetUrl = $"{baseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={user.PasswordResetToken}";
-        // Best-effort: a mail outage must not 500 the request or leak that the account exists.
+        // Best-effort: an SMS outage must not 500 the request or leak that the account exists.
         try
         {
-            await emailSender.SendAsync(email, "Reset your Tenkasi Fresh password", EmailTemplates.PasswordReset(resetUrl), ct);
+            await smsSender.SendOtpAsync(user.PhoneNumber!, otp, ct);
         }
         catch
         {
-            // swallowed intentionally — token is stored; user can retry
+            // swallowed intentionally — OTP is stored; user can request a new one
         }
+    }
+
+    public async Task<VerifyOtpResponse> VerifyOtpAsync(VerifyOtpRequest request, CancellationToken ct)
+    {
+        var user = await uow.Users.FirstOrDefaultAsync(x => x.PhoneNumber == request.PhoneNumber, ct);
+        if (user is null
+            || string.IsNullOrEmpty(user.PasswordResetOtpHash)
+            || user.PasswordResetOtpExpiresAtUtc is null
+            || user.PasswordResetOtpExpiresAtUtc < DateTime.UtcNow
+            || !hasher.Verify(request.Otp, user.PasswordResetOtpHash))
+            throw new ApiException("Invalid or expired OTP", 400);
+
+        // Single-use: consume the OTP and issue a short-lived reset token (valid 15 minutes).
+        user.PasswordResetOtpHash = null;
+        user.PasswordResetOtpExpiresAtUtc = null;
+        var token = GenerateResetToken();
+        user.PasswordResetToken = token;
+        user.PasswordResetTokenExpiresAtUtc = DateTime.UtcNow.AddMinutes(15);
+        await uow.SaveChangesAsync(ct);
+        return new VerifyOtpResponse(token);
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct)
     {
-        var user = await uow.Users.FirstOrDefaultAsync(x => x.Email == request.Email.ToLowerInvariant() && x.PasswordResetToken == request.Token, ct) ?? throw new ApiException("Invalid reset token", 400);
-        if (user.PasswordResetTokenExpiresAtUtc < DateTime.UtcNow) throw new ApiException("Reset token expired", 400);
+        var user = await uow.Users.FirstOrDefaultAsync(x => x.PasswordResetToken == request.Token, ct);
+        if (user is null || user.PasswordResetTokenExpiresAtUtc is null || user.PasswordResetTokenExpiresAtUtc < DateTime.UtcNow)
+            throw new ApiException("Reset link expired. Please request a new OTP.", 400);
         user.PasswordHash = hasher.Hash(request.NewPassword);
+        // Invalidate the token after use.
         user.PasswordResetToken = null;
         user.PasswordResetTokenExpiresAtUtc = null;
         await uow.SaveChangesAsync(ct);
     }
+
+    // 6-digit OTP, zero-padded; cryptographically random.
+    private static string GenerateOtp() => RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+
+    // URL-safe high-entropy reset token (256 bits).
+    private static string GenerateResetToken() =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
 
     public async Task VerifyEmailAsync(VerifyEmailRequest request, CancellationToken ct)
     {

@@ -137,14 +137,23 @@ public sealed class BasketUpsertRequestValidator : AbstractValidator<BasketUpser
 
 public sealed class ForgotPasswordRequestValidator : AbstractValidator<ForgotPasswordRequest>
 {
-    public ForgotPasswordRequestValidator() => RuleFor(x => x.Email).NotEmpty().EmailAddress();
+    public ForgotPasswordRequestValidator() =>
+        RuleFor(x => x.PhoneNumber).NotEmpty().Matches(ValidationPatterns.IndianMobile).WithMessage(ValidationPatterns.IndianMobileMessage);
+}
+
+public sealed class VerifyOtpRequestValidator : AbstractValidator<VerifyOtpRequest>
+{
+    public VerifyOtpRequestValidator()
+    {
+        RuleFor(x => x.PhoneNumber).NotEmpty().Matches(ValidationPatterns.IndianMobile).WithMessage(ValidationPatterns.IndianMobileMessage);
+        RuleFor(x => x.Otp).NotEmpty().Matches(@"^\d{6}$").WithMessage("Enter the 6-digit OTP.");
+    }
 }
 
 public sealed class ResetPasswordRequestValidator : AbstractValidator<ResetPasswordRequest>
 {
     public ResetPasswordRequestValidator()
     {
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.Token).NotEmpty();
         RuleFor(x => x.NewPassword).MinimumLength(8);
     }

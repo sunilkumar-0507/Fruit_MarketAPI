@@ -30,3 +30,9 @@ public interface IEmailSender
 {
     Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken ct = default);
 }
+
+public interface ISmsSender
+{
+    /// <summary>Sends a one-time password to an Indian 10-digit mobile number.</summary>
+    Task SendOtpAsync(string phoneNumber, string otp, CancellationToken ct = default);
+}
