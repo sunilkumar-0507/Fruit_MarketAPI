@@ -5,7 +5,8 @@ namespace Fruitmarket.Domain.Entities;
 public sealed class User : BaseEntity
 {
     public string FullName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
+    // Optional: registration now keys on PhoneNumber, so a user may have no email.
+    public string? Email { get; set; }
     public string? PhoneNumber { get; set; }
     public string PasswordHash { get; set; } = string.Empty;
     public bool EmailConfirmed { get; set; }

@@ -42,18 +42,22 @@ public static class DatabaseInitializer
             var adminRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Admin");
             if (adminRole is null) return;
 
-            var adminExists = await context.Users
-                .AnyAsync(u => u.Roles.Any(r => r.Name == "Admin"));
+            // Login is phone-based, so the admin needs a phone number to sign in.
+            var adminPhone = config["SeedAdmin:PhoneNumber"] ?? "9999999999";
 
-            if (!adminExists)
+            var admin = await context.Users
+                .FirstOrDefaultAsync(u => u.Roles.Any(r => r.Name == "Admin"));
+
+            if (admin is null)
             {
                 var password = config["SeedAdmin:Password"] ?? "Admin@123456";
                 var email = config["SeedAdmin:Email"] ?? "admin@fruitmarket.com";
 
-                var admin = new User
+                admin = new User
                 {
                     FullName = "System Admin",
                     Email = email.ToLowerInvariant(),
+                    PhoneNumber = adminPhone,
                     EmailConfirmed = true,
                     PasswordHash = hasher.Hash(password),
                     Roles = [adminRole]
@@ -62,7 +66,14 @@ public static class DatabaseInitializer
                 context.Cart.Add(new Cart { User = admin });
                 await context.SaveChangesAsync();
 
-                logger.LogInformation("Admin user seeded: {Email}", email);
+                logger.LogInformation("Admin user seeded: {Email} / {Phone}", email, adminPhone);
+            }
+            else if (string.IsNullOrWhiteSpace(admin.PhoneNumber))
+            {
+                // Backfill an existing admin created before phone-based login.
+                admin.PhoneNumber = adminPhone;
+                await context.SaveChangesAsync();
+                logger.LogInformation("Backfilled admin phone number: {Phone}", adminPhone);
             }
         }
         catch (Exception ex)

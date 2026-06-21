@@ -3,12 +3,21 @@ using Fruitmarket.Application.DTOs;
 
 namespace Fruitmarket.Application.Validators;
 
+internal static class ValidationPatterns
+{
+    // 10-digit Indian mobile number (starts 6–9).
+    public const string IndianMobile = @"^[6-9]\d{9}$";
+    public const string IndianMobileMessage = "Enter a valid 10-digit mobile number.";
+}
+
 public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest>
 {
     public RegisterRequestValidator()
     {
         RuleFor(x => x.FullName).NotEmpty().MaximumLength(120);
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.PhoneNumber).NotEmpty().Matches(ValidationPatterns.IndianMobile).WithMessage(ValidationPatterns.IndianMobileMessage);
+        // Email is optional now; validate the format only when one is supplied.
+        RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
         RuleFor(x => x.Password).MinimumLength(8);
     }
 }
@@ -17,7 +26,7 @@ public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
 {
     public LoginRequestValidator()
     {
-        RuleFor(x => x.Email).NotEmpty().EmailAddress();
+        RuleFor(x => x.PhoneNumber).NotEmpty().Matches(ValidationPatterns.IndianMobile).WithMessage(ValidationPatterns.IndianMobileMessage);
         RuleFor(x => x.Password).NotEmpty();
     }
 }
@@ -29,7 +38,7 @@ public sealed class ProductUpsertRequestValidator : AbstractValidator<ProductUps
         RuleFor(x => x.NameEn).NotEmpty().MaximumLength(200);
         RuleFor(x => x.NameTa).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Price).GreaterThan(0);
-        RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0m);
         RuleFor(x => x.CategoryId).NotEmpty();
     }
 }
@@ -56,7 +65,8 @@ public sealed class CartItemRequestValidator : AbstractValidator<AddCartItemRequ
     public CartItemRequestValidator()
     {
         RuleFor(x => x.ProductId).NotEmpty();
-        RuleFor(x => x.Quantity).InclusiveBetween(1, 99);
+        // Decimal quantities for gram-based ordering (e.g. 0.25 = 250g); must be > 0.
+        RuleFor(x => x.Quantity).GreaterThan(0m).LessThanOrEqualTo(99m);
     }
 }
 
@@ -86,7 +96,7 @@ public sealed class UpdateCartItemRequestValidator : AbstractValidator<UpdateCar
 {
     public UpdateCartItemRequestValidator()
     {
-        RuleFor(x => x.Quantity).InclusiveBetween(1, 99);
+        RuleFor(x => x.Quantity).GreaterThan(0m).LessThanOrEqualTo(99m);
     }
 }
 

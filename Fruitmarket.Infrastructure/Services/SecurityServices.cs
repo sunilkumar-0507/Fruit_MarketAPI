@@ -50,10 +50,11 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenSer
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new(JwtRegisteredClaimNames.Email, user.Email),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.FullName)
         };
+        // Email is optional now (registration keys on phone number).
+        if (!string.IsNullOrEmpty(user.Email)) claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.Email));
         claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role.Name)));
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

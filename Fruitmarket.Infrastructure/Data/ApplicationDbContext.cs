@@ -30,8 +30,12 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
         modelBuilder.Entity<User>(e =>
         {
+            // Email is optional; the unique index permits multiple NULLs in MySQL.
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.Email).HasMaxLength(256);
+            // PhoneNumber is the primary login identifier and must be unique.
+            e.Property(x => x.PhoneNumber).HasMaxLength(20);
+            e.HasIndex(x => x.PhoneNumber).IsUnique();
             e.Property(x => x.FullName).HasMaxLength(120);
             e.HasMany(x => x.Roles).WithMany(x => x.Users).UsingEntity("UserRoles");
         });
@@ -53,11 +57,18 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.OriginalPrice).HasColumnType("decimal(18,2)");
             e.Property(x => x.NameEn).HasMaxLength(200);
             e.Property(x => x.NameTa).HasMaxLength(200);
+            // Decimal stock for gram-based products (3 dp → 1g precision).
+            e.Property(x => x.StockQuantity).HasColumnType("decimal(18,3)");
             e.HasQueryFilter(x => !x.IsDeleted);
         });
         modelBuilder.Entity<ProductImage>().Property(x => x.Url).HasMaxLength(1000);
         modelBuilder.Entity<Cart>().HasIndex(x => x.UserId).IsUnique();
-        modelBuilder.Entity<CartItem>().HasIndex(x => new { x.CartId, x.ProductId }).IsUnique();
+        modelBuilder.Entity<CartItem>(e =>
+        {
+            e.HasIndex(x => new { x.CartId, x.ProductId }).IsUnique();
+            // Decimal quantity for gram-based ordering (3 dp → 1g precision).
+            e.Property(x => x.Quantity).HasColumnType("decimal(18,3)");
+        });
         modelBuilder.Entity<Review>().HasIndex(x => new { x.ProductId, x.UserId }).IsUnique();
         modelBuilder.Entity<WishlistItem>().HasIndex(x => new { x.UserId, x.ProductId }).IsUnique();
         modelBuilder.Entity<Order>(e =>
@@ -69,7 +80,11 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
             e.Property(x => x.PaymentTransactionId).HasMaxLength(100);
             e.Property(x => x.PaymentProviderOrderId).HasMaxLength(100);
         });
-        modelBuilder.Entity<OrderItem>().Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<OrderItem>(e =>
+        {
+            e.Property(x => x.UnitPrice).HasColumnType("decimal(18,2)");
+            e.Property(x => x.Quantity).HasColumnType("decimal(18,3)");
+        });
         modelBuilder.Entity<Coupon>(e =>
         {
             e.HasIndex(x => x.Code).IsUnique();

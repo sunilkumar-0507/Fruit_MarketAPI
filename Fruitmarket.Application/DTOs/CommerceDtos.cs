@@ -3,12 +3,12 @@ using Fruitmarket.Domain.Enums;
 namespace Fruitmarket.Application.DTOs;
 
 public sealed record CartDto(Guid Id, IReadOnlyList<CartItemDto> Items, decimal Total);
-public sealed record CartItemDto(Guid Id, Guid ProductId, string ProductName, string Slug, decimal UnitPrice, int Quantity, decimal LineTotal);
-public sealed record AddCartItemRequest(Guid ProductId, int Quantity);
-public sealed record UpdateCartItemRequest(int Quantity);
+public sealed record CartItemDto(Guid Id, Guid ProductId, string ProductName, string Slug, decimal UnitPrice, decimal Quantity, decimal LineTotal);
+public sealed record AddCartItemRequest(Guid ProductId, decimal Quantity);
+public sealed record UpdateCartItemRequest(decimal Quantity);
 public sealed record CreateOrderRequest(Guid? ShippingAddressId, string? CouponCode, string? PaymentMethod = null);
 public sealed record OrderDto(Guid Id, string OrderNumber, OrderStatus Status, decimal Subtotal, decimal Discount, decimal Total, string? TrackingNumber, DateTime CreatedAtUtc, string? CustomerName, string? CustomerEmail, string? CustomerPhone, AddressDto? ShippingAddress, IReadOnlyList<OrderItemDto> Items, string PaymentMethod, string PaymentStatus, string? PaymentTransactionId);
-public sealed record OrderItemDto(Guid ProductId, string ProductName, decimal UnitPrice, int Quantity);
+public sealed record OrderItemDto(Guid ProductId, string ProductName, decimal UnitPrice, decimal Quantity);
 
 // ── Payment (Cashfree) ────────────────────────────────────────────────────────
 /// <summary>Customer overrides passed from the storefront (the User record may lack a phone, which Cashfree requires).</summary>

@@ -15,9 +15,12 @@ public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTok
 {
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct)
     {
-        if (await uow.Users.Query().AnyAsync(x => x.Email == request.Email, ct)) throw new ApiException("Email already registered", 409);
+        // PhoneNumber is the primary unique identifier.
+        if (await uow.Users.Query().AnyAsync(x => x.PhoneNumber == request.PhoneNumber, ct)) throw new ApiException("Mobile number already registered", 409);
+        var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim().ToLowerInvariant();
+        if (email is not null && await uow.Users.Query().AnyAsync(x => x.Email == email, ct)) throw new ApiException("Email already registered", 409);
         var role = await uow.Roles.FirstOrDefaultAsync(x => x.Name == "Customer", ct) ?? new Role { Name = "Customer" };
-        var user = new User { FullName = request.FullName, Email = request.Email.ToLowerInvariant(), PhoneNumber = request.PhoneNumber, PasswordHash = hasher.Hash(request.Password), EmailVerificationToken = Guid.NewGuid().ToString("N"), Roles = [role] };
+        var user = new User { FullName = request.FullName, Email = email, PhoneNumber = request.PhoneNumber, PasswordHash = hasher.Hash(request.Password), EmailVerificationToken = email is null ? null : Guid.NewGuid().ToString("N"), Roles = [role] };
         await uow.Users.AddAsync(user, ct);
         await uow.Carts.AddAsync(new Cart { User = user }, ct);
         var response = jwt.CreateAuthResponse(user);
@@ -28,8 +31,8 @@ public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTok
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct)
     {
-        var user = await uow.Users.Query().Include(x => x.Roles).FirstOrDefaultAsync(x => x.Email == request.Email.ToLowerInvariant(), ct);
-        if (user is null || !hasher.Verify(request.Password, user.PasswordHash)) throw new ApiException("Invalid credentials", 401);
+        var user = await uow.Users.Query().Include(x => x.Roles).FirstOrDefaultAsync(x => x.PhoneNumber == request.PhoneNumber, ct);
+        if (user is null || !hasher.Verify(request.Password, user.PasswordHash)) throw new ApiException("Invalid mobile number or password", 401);
         return await CreateAndStoreTokens(user, ct);
     }
 
@@ -71,20 +74,22 @@ public sealed class AuthService(IUnitOfWork uow, IPasswordHasher hasher, IJwtTok
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken ct)
     {
-        var user = await uow.Users.FirstOrDefaultAsync(x => x.Email == request.Email.ToLowerInvariant(), ct);
+        var email = request.Email.ToLowerInvariant();
+        var user = await uow.Users.FirstOrDefaultAsync(x => x.Email == email, ct);
         // Always return without revealing whether the email exists (prevents account enumeration).
         if (user is null) return;
 
         user.PasswordResetToken = Guid.NewGuid().ToString("N");
-        user.PasswordResetTokenExpiresAtUtc = DateTime.UtcNow.AddMinutes(30);
+        // Reset links are valid for 24 hours (was 30 minutes, which expired too quickly).
+        user.PasswordResetTokenExpiresAtUtc = DateTime.UtcNow.AddHours(24);
         await uow.SaveChangesAsync(ct);
 
         var baseUrl = emailOptions.Value.FrontendUrl.TrimEnd('/');
-        var resetUrl = $"{baseUrl}/reset-password?email={Uri.EscapeDataString(user.Email)}&token={user.PasswordResetToken}";
+        var resetUrl = $"{baseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={user.PasswordResetToken}";
         // Best-effort: a mail outage must not 500 the request or leak that the account exists.
         try
         {
-            await emailSender.SendAsync(user.Email, "Reset your Tenkasi Fresh password", EmailTemplates.PasswordReset(resetUrl), ct);
+            await emailSender.SendAsync(email, "Reset your Tenkasi Fresh password", EmailTemplates.PasswordReset(resetUrl), ct);
         }
         catch
         {

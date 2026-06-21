@@ -19,7 +19,8 @@ public sealed class Product : BaseEntity
     // Pre-discount price. Null = no discount (sells at Price). Set by the discount endpoint;
     // when set, it holds the original price and Price holds the discounted price.
     public decimal? OriginalPrice { get; set; }
-    public int StockQuantity { get; set; }
+    // Decimal to support gram-based stock tracking (e.g. 99.75 kg after a 250g order).
+    public decimal StockQuantity { get; set; }
     // Manual admin override: mark a product out of stock independently of StockQuantity.
     public bool IsOutOfStock { get; set; }
     // Denormalised average of all reviews' ratings; recalculated whenever a review is added/updated/removed.

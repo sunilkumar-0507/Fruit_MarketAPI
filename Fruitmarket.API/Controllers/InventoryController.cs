@@ -12,10 +12,10 @@ namespace Fruitmarket.API.Controllers;
 public sealed class InventoryController(IUnitOfWork uow) : ControllerBase
 {
     [HttpPatch("products/{productId:guid}/stock")]
-    public async Task<IActionResult> UpdateStock(Guid productId, [FromBody] int quantity, CancellationToken ct)
+    public async Task<IActionResult> UpdateStock(Guid productId, [FromBody] decimal quantity, CancellationToken ct)
     {
         var product = await uow.Products.GetByIdAsync(productId, ct) ?? throw new ApiException("Product not found", 404);
-        product.StockQuantity = Math.Max(0, quantity);
+        product.StockQuantity = Math.Max(0m, quantity);
         await uow.SaveChangesAsync(ct);
         return NoContent();
     }
