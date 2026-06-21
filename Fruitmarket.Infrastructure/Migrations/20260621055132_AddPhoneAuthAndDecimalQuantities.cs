@@ -73,6 +73,25 @@ namespace Fruitmarket.Infrastructure.Migrations
                 column: "StockQuantity",
                 value: 250m);
 
+            // Existing rows may hold phone numbers in legacy formats (e.g. "+91 98765 43210") or
+            // duplicates. Normalize to a bare 10-digit number, blank anything that still isn't valid,
+            // then de-duplicate (keep the earliest account, NULL the rest) so the unique index below
+            // can be created and existing users can sign in with the new phone-based login.
+            // Multiple NULLs are allowed under a MySQL unique index.
+            migrationBuilder.Sql(
+                "UPDATE `Users` SET `PhoneNumber` = RIGHT(REGEXP_REPLACE(`PhoneNumber`, '[^0-9]', ''), 10) " +
+                "WHERE `PhoneNumber` IS NOT NULL AND `PhoneNumber` <> '';");
+
+            migrationBuilder.Sql(
+                "UPDATE `Users` SET `PhoneNumber` = NULL " +
+                "WHERE `PhoneNumber` IS NOT NULL AND `PhoneNumber` NOT REGEXP '^[0-9]{10}$';");
+
+            migrationBuilder.Sql(
+                "UPDATE `Users` u JOIN (" +
+                "SELECT `Id`, ROW_NUMBER() OVER (PARTITION BY `PhoneNumber` ORDER BY `CreatedAtUtc`, `Id`) AS rn " +
+                "FROM `Users` WHERE `PhoneNumber` IS NOT NULL" +
+                ") d ON u.`Id` = d.`Id` SET u.`PhoneNumber` = NULL WHERE d.rn > 1;");
+
             migrationBuilder.CreateIndex(
                 name: "IX_Users_PhoneNumber",
                 table: "Users",

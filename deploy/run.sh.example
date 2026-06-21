@@ -25,11 +25,22 @@ export ConnectionStrings__DefaultConnection="Server=127.0.0.1;Port=3306;Database
 export Jwt__Secret="__JWT_SECRET__"
 
 # Seed admin — only used on first boot when no Admin user exists yet.
+# PhoneNumber is the login identifier (login is phone-based). 10 digits, no +91.
 export SeedAdmin__Email="__ADMIN_EMAIL__"
 export SeedAdmin__Password="__ADMIN_PASSWORD__"
+export SeedAdmin__PhoneNumber="__ADMIN_PHONE__"
 
-# Hostinger SMTP mailbox password (for password-reset email).
+# Hostinger SMTP mailbox password (for transactional email).
 export Email__Password="__SMTP_PASSWORD__"
+
+# ── SMS gateway (OTP password reset) ─────────────────────────────────────────
+# Flip Sms__Enabled to true once ApiKey is filled in; while false the OTP is only
+# written to the app log (no SMS sent), so real users can't complete a reset.
+export Sms__Enabled=false
+export Sms__Provider="Fast2SMS"              # or "MSG91"
+export Sms__ApiKey="__SMS_API_KEY__"
+export Sms__SenderId="__SMS_SENDER_ID__"     # MSG91 (DLT sender) — leave blank for Fast2SMS
+export Sms__TemplateId="__SMS_TEMPLATE_ID__" # MSG91 (DLT template) — leave blank for Fast2SMS
 
 # Cashfree online payments. Use "sandbox" while testing, "production" to go live.
 # App ID + Secret Key come from the Cashfree dashboard (Developers → API Keys).
