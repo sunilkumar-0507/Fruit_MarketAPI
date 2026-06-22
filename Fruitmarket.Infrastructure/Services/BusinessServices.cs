@@ -236,7 +236,8 @@ public sealed class OrderService(IUnitOfWork uow, ICurrentUserService currentUse
         var couponCode = request.CouponCode?.ToUpperInvariant();
         var coupon = string.IsNullOrWhiteSpace(couponCode) ? null : await uow.Coupons.FirstOrDefaultAsync(x => x.Code == couponCode && x.IsActive, ct);
         var discount = coupon is not null && subtotal >= (coupon.MinimumOrderAmount ?? 0) && coupon.StartsAtUtc <= DateTime.UtcNow && coupon.EndsAtUtc >= DateTime.UtcNow ? coupon.DiscountAmount : 0;
-        var order = new Order { UserId = currentUser.UserId, OrderNumber = $"FM-{DateTime.UtcNow:yyyyMMddHHmmss}", ShippingAddressId = request.ShippingAddressId, CouponId = coupon?.Id, Subtotal = subtotal, Discount = discount, Total = Math.Max(0, subtotal - discount) };
+        const decimal deliveryFee = 49m;
+        var order = new Order { UserId = currentUser.UserId, OrderNumber = $"FM-{DateTime.UtcNow:yyyyMMddHHmmss}", ShippingAddressId = request.ShippingAddressId, CouponId = coupon?.Id, Subtotal = subtotal, Discount = discount, DeliveryFee = deliveryFee, Total = Math.Max(0, subtotal + deliveryFee - discount) };
         foreach (var item in cart.Items) { if (item.Product is null) continue; if (item.Product.StockQuantity < item.Quantity) throw new ApiException($"{item.Product.NameEn} is out of stock", 409); item.Product.StockQuantity -= item.Quantity; order.Items.Add(new OrderItem { ProductId = item.ProductId, ProductName = item.Product.NameEn, UnitPrice = item.Product.Price, Quantity = item.Quantity }); uow.CartItems.Remove(item); }
         await uow.Orders.AddAsync(order, ct);
         await uow.SaveChangesAsync(ct);
@@ -268,7 +269,7 @@ public sealed class OrderService(IUnitOfWork uow, ICurrentUserService currentUse
         return ToDto(order);
     }
 
-    private static OrderDto ToDto(Order o) => new(o.Id, o.OrderNumber, o.Status, o.Subtotal, o.Discount, o.Total, o.TrackingNumber, o.CreatedAtUtc, o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToArray());
+    private static OrderDto ToDto(Order o) => new(o.Id, o.OrderNumber, o.Status, o.Subtotal, o.Discount, o.DeliveryFee, o.Total, o.TrackingNumber, o.CreatedAtUtc, o.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.UnitPrice, i.Quantity)).ToArray());
 }
 
 public sealed class ReviewService(IUnitOfWork uow, ICurrentUserService currentUser) : IReviewService

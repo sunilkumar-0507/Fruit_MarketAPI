@@ -11,6 +11,7 @@ public sealed class Order : BaseEntity
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
     public decimal Subtotal { get; set; }
     public decimal Discount { get; set; }
+    public decimal DeliveryFee { get; set; }
     public decimal Total { get; set; }
     public string? TrackingNumber { get; set; }
     public Guid? CouponId { get; set; }
